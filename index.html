@@ -130,7 +130,7 @@
         #chart-labels { position:absolute; inset:10px 0 8px 10px; pointer-events:none; overflow:hidden; }
         .price-hline { position:absolute; left:0; right:62px; height:0;
                        border-top-width:1px; border-top-style:dashed;
-                       transform:translateY(-50%); transition:top .1s ease; }
+                       transform:translateY(-50%); transition:none; }
         .hline-high { border-color:rgba(0,200,150,.45); }
         .hline-low  { border-color:rgba(255,77,106,.45); }
         .hline-curr { border-color:rgba(61,126,255,.7); border-top-style:solid; }
@@ -2206,7 +2206,7 @@ function initChart(){
             layout:{padding:{right:0,top:28,bottom:28}},
             scales:{
                 x:{grid:{color:'rgba(37,42,58,.9)'},ticks:{color:'#5a6480',maxTicksLimit:10,font:{family:'JetBrains Mono',size:10}},border:{color:'#252a3a'}},
-                y:{position:'right',display:true,grace:'5%',bounds:'data',afterDataLimits:extendYForOsc,afterBuildTicks:hideOscTicks,afterFit:fixYAxisWidth,grid:{color:'rgba(37,42,58,.9)'},ticks:{color:'#5a6480',padding:8,font:{family:'JetBrains Mono',size:10},callback:v=>fmt1(v)},border:{display:false}}
+                y:{position:'right',display:true,grace:'5%',bounds:'data',afterDataLimits:smoothYHook,afterBuildTicks:hideOscTicks,afterFit:fixYAxisWidth,grid:{color:'rgba(37,42,58,.9)'},ticks:{color:'#5a6480',padding:8,font:{family:'JetBrains Mono',size:10},callback:v=>fmt1(v)},border:{display:false}}
             },
             plugins:{
                 legend:{display:false},tooltip:{enabled:false},
@@ -2217,7 +2217,7 @@ function initChart(){
                 annotation:{ annotations:{} }
             }
         },
-        plugins:[candlePlugin, tradeMarkPlugin]
+        plugins:[smoothScrollPlugin, candlePlugin, smoothTipPlugin, tradeMarkPlugin]
     });
     const gradCtx=document.getElementById('cryptoChart').getContext('2d');
     const gradient=gradCtx.createLinearGradient(0,0,0,400);
@@ -2399,6 +2399,131 @@ function updateIndGaps(){
         });
     }
     if(html!==_gapHtml){ _gapHtml=html; el.innerHTML=html; }
+}
+
+/* ════════════════════════════════════════════
+   ANIMATION FLUIDE DU GRAPHIQUE
+   • défilement : le graphique glisse au lieu de sauter à chaque tick
+   • la pointe de la courbe s'étire du tick précédent vers le nouveau
+   • point lumineux + onde sur le dernier tick
+   • échelle verticale : s'élargit tout de suite, se resserre doucement
+   Pour tout désactiver : SMOOTH.on = false
+════════════════════════════════════════════ */
+const SMOOTH = { on:true, xTau:110, yTau:650, tipMs:240, pingMs:600 };
+const _anim = { raf:0, last:0, gap:14, busy:false, ox:0, ot0:0, key:'', primed:false, lastIdx:-1, lastEp:null, tipT0:0, y:null };
+let _tip = null, _scrollOn = false;
+
+function _smoothKey(){ return currentSymbol+'|'+chartMode+'|'+candleTF; }
+function _curOff(now){
+    if(!_anim.ox) return 0;
+    const o=_anim.ox*Math.exp(-(now-_anim.ot0)/SMOOTH.xTau);
+    return Math.abs(o)<0.15 ? 0 : o;
+}
+function kickSmooth(){
+    if(!SMOOTH.on || _anim.raf) return;
+    _anim.raf=requestAnimationFrame(smoothFrame);
+}
+/* Boucle d'animation : redessine seulement (pas de recalcul), puis s'arrête toute seule */
+function smoothFrame(now){
+    _anim.raf=0;
+    if(!chart) return;
+    if(now-_anim.last<_anim.gap){ kickSmooth(); return; }
+    _anim.last=now;
+    const p=performance.now(), age=p-_anim.tipT0, isTicks=(chartMode==='ticks');
+    const active = _curOff(p)!==0 || (isTicks && age<Math.max(SMOOTH.tipMs,SMOOTH.pingMs));
+    if(active || _anim.busy){
+        const t0=performance.now();
+        chart.draw();
+        _anim.gap = (performance.now()-t0)>9 ? 32 : 14;     // machine lente : 30 images/s au lieu de 60
+        if(isTicks && age<SMOOTH.tipMs+120) updatePriceLines();
+    }
+    _anim.busy=active;
+    if(active) kickSmooth();
+}
+/* Prix affiché sur la ligne/étiquette "prix actuel" : suit la pointe en mouvement */
+function displayedLastPrice(){
+    const P=ticksData.prices, n=P.length;
+    if(!n) return null;
+    if(!SMOOTH.on || chartMode!=='ticks' || n<2) return P[n-1];
+    const t=(performance.now()-_anim.tipT0)/SMOOTH.tipMs;
+    if(!(t>=0 && t<1)) return P[n-1];
+    const e=1-Math.pow(1-t,3);
+    return P[n-2]+(P[n-1]-P[n-2])*e;
+}
+/* Glissement horizontal : on décale le dessin puis on le ramène à 0 en douceur */
+const smoothScrollPlugin = {
+    id:'smoothScroll',
+    beforeDatasetsDraw(c){
+        const off=SMOOTH.on ? _curOff(performance.now()) : 0;
+        if(!off){ _scrollOn=false; return; }
+        _scrollOn=true;
+        c.ctx.save(); c.ctx.translate(off,0);
+    },
+    afterDraw(c){
+        if(_scrollOn){ c.ctx.restore(); _scrollOn=false; }
+    }
+};
+/* Pointe de la courbe + point lumineux + onde */
+const smoothTipPlugin = {
+    id:'smoothTip',
+    beforeDatasetDraw(c,args){
+        if(args.index!==0) return;
+        _tip=null;
+        if(!SMOOTH.on || chartMode!=='ticks') return;
+        const pts=args.meta.data, n=pts.length;
+        if(n<2) return;
+        const last=pts[n-1], prev=pts[n-2];
+        if(!last || !prev || last.skip || prev.skip || !isFinite(last.x) || !isFinite(prev.x)) return;
+        _tip={el:last, ox:last.x, oy:last.y, x:last.x, y:last.y};
+        const t=(performance.now()-_anim.tipT0)/SMOOTH.tipMs;
+        if(t>=0 && t<1){
+            const e=1-Math.pow(1-t,3);
+            last.x=prev.x+(last.x-prev.x)*e;
+            last.y=prev.y+(last.y-prev.y)*e;
+            _tip.x=last.x; _tip.y=last.y;
+        }
+    },
+    afterDatasetDraw(c,args){
+        if(args.index===0 && _tip){ _tip.el.x=_tip.ox; _tip.el.y=_tip.oy; }
+    },
+    afterDatasetsDraw(c){
+        const p=_tip; _tip=null;
+        if(!p || !SMOOTH.on || chartMode!=='ticks') return;
+        const ca=c.chartArea;
+        if(!ca || p.x<ca.left || p.x>ca.right || p.y<ca.top || p.y>ca.bottom) return;
+        const ctx=c.ctx, age=performance.now()-_anim.tipT0;
+        ctx.save();
+        if(age>=0 && age<SMOOTH.pingMs){
+            const k=age/SMOOTH.pingMs;
+            ctx.strokeStyle='rgba(110,165,255,'+(0.55*Math.pow(1-k,1.5)).toFixed(3)+')';
+            ctx.lineWidth=1.6;
+            ctx.beginPath(); ctx.arc(p.x,p.y,4+k*16,0,Math.PI*2); ctx.stroke();
+        }
+        ctx.fillStyle='rgba(61,126,255,.25)';
+        ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#ffffff'; ctx.strokeStyle='#3d7eff'; ctx.lineWidth=1.8;
+        ctx.beginPath(); ctx.arc(p.x,p.y,3.4,0,Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.restore();
+    }
+};
+/* Échelle Y : s'élargit immédiatement (le prix reste visible), se resserre doucement */
+function smoothYHook(scale){
+    extendYForOsc(scale);
+    const o=scale.options;
+    if(!SMOOTH.on || o.min!==undefined || o.max!==undefined){ _anim.y=null; return; }
+    const tMin=scale.min, tMax=scale.max, R=tMax-tMin;
+    if(!(R>0)) return;
+    const now=performance.now(), key=_smoothKey();
+    const y=_anim.y;
+    if(!y || y.key!==key || Math.abs(tMin-y.min)>R*3 || Math.abs(tMax-y.max)>R*3){
+        _anim.y={min:tMin, max:tMax, key, t:now};      // premier affichage / autre marché : pas d'animation
+        return;
+    }
+    const k=1-Math.exp(-Math.min(2000,now-y.t)/SMOOTH.yTau);
+    y.t=now;
+    y.max = tMax>y.max ? tMax : y.max+(tMax-y.max)*k;
+    y.min = tMin<y.min ? tMin : y.min+(tMin-y.min)*k;
+    scale.min=y.min; scale.max=y.max;
 }
 
 /* ════════════════════════════════════════════
@@ -3012,6 +3137,7 @@ function ingestTick(sym, tick, src){
     const prev = md.prices.length>1 ? md.prices[md.prices.length-2] : null;
     if(prev != null) addPayoutSimTick(p >= prev ? 'U' : 'D');
     stepInstancesWithTick(p, capped);
+    if(chartMode==='ticks'){ _anim.tipT0=performance.now(); kickSmooth(); }
     if(src && src!==_lastTickSrc){
         _lastTickSrc=src;
         const st=document.getElementById('status-text'); if(st) st.title='Ticks via '+src;
@@ -3176,7 +3302,7 @@ function updatePriceLines(){
      {hl:'hline-curr',bg:'badge-curr',bt:'btag-curr',val:curr,        pre:''}
     ].forEach(({hl,bg,bt,val,pre})=>{
         if(val==null)return;
-        const p=px(val),pct=(p/cH*100).toFixed(2)+'%';
+        const p=px(hl==='hline-curr' ? displayedLastPrice() : val),pct=(p/cH*100).toFixed(2)+'%';
         const vis=p>=dTop-2&&p<=dBot+2;
         const h=document.getElementById(hl),b=document.getElementById(bg),t=document.getElementById(bt);
         if(h){h.style.top=pct;h.style.display=vis?'block':'none';}
@@ -3789,14 +3915,40 @@ function scrollToEnd(force){
     if(!chart||!V.times.length)return;
     const total=V.times.length;
     const win = viewWin || (chartMode==='candles' ? CANDLE_VIEW : VIEW_WINDOW);
+    const tMin=Math.max(0,total-win), tMax=total+RIGHT_PAD-1;
+
+    /* glissement : de combien de pixels le contenu recule (repère = ancien dernier tick) */
+    let keep=false;
+    const xs=chart.scales.x, ca=chart.chartArea, key=_smoothKey();
+    if(SMOOTH.on && _anim.primed && _anim.key===key && _anim.lastEp!=null && xs && ca
+       && isFinite(xs.min) && isFinite(xs.max) && xs.max>xs.min
+       && Math.abs((tMax-tMin)-(xs.max-xs.min))<=3){
+        const iNew=idxForEpochIn(V,_anim.lastEp);
+        if(iNew>=0){
+            const W=ca.right-ca.left, slot=W/(tMax-tMin);
+            const shift=(_anim.lastIdx-xs.min)/(xs.max-xs.min)*W - (iNew-tMin)/(tMax-tMin)*W;
+            if(shift>-0.5 && shift<=slot*40){
+                keep=true;
+                if(shift>0.5){
+                    const now=performance.now();
+                    _anim.ox=_curOff(now)+shift; _anim.ot0=now;
+                    kickSmooth();
+                }
+            }
+        }
+    }
+    if(!keep) _anim.ox=0;
+    _anim.primed=true; _anim.key=key; _anim.lastIdx=total-1; _anim.lastEp=V.epochs[total-1];
+
     suppressAutoScrollOff++;
-    chart.zoomScale('x',{min:Math.max(0,total-win),max:total+RIGHT_PAD-1},'default');
+    chart.zoomScale('x',{min:tMin,max:tMax},'default');
     setTimeout(()=>{
         suppressAutoScrollOff=Math.max(0,suppressAutoScrollOff-1);
         updatePriceLines();drawPeakLabels();updateOscBarrier();
     },80);
     return true;
 }
+
 let lTimer=null;
 function debounceLines(){clearTimeout(lTimer);lTimer=setTimeout(()=>{updatePriceLines();drawPeakLabels();updateOscBarrier();},50);}
 window.addEventListener('wheel',debounceLines,{passive:true});
