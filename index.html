@@ -133,7 +133,7 @@
                        transform:translateY(-50%); transition:none; }
         .hline-high { border-color:rgba(0,200,150,.45); }
         .hline-low  { border-color:rgba(255,77,106,.45); }
-        .hline-curr { border-color:rgba(61,126,255,.7); border-top-style:solid; }
+        .hline-curr { border-color:rgba(210,248,255,.55); border-top-style:solid; }
         #osc-barrier-line { position:absolute; left:0; right:62px; height:0; border-top:1px dashed rgba(90,100,128,.55);
                             transform:translateY(-50%); transition:none; display:none; }
         #osc-barrier-label { display:none !important; }
@@ -142,7 +142,7 @@
                      padding:2px 8px; border-radius:4px; white-space:nowrap; }
         #badge-high .badge-tag { background:rgba(0,200,150,.18); color:var(--green); border:1px solid rgba(0,200,150,.35); }
         #badge-low  .badge-tag { background:rgba(255,77,106,.18); color:var(--red);  border:1px solid rgba(255,77,106,.35); }
-        #badge-curr .badge-tag { background:var(--accent); color:#fff; font-size:11px; padding:3px 9px; }
+        #badge-curr .badge-tag { background:#dff8ff; color:#0d0f17; font-size:11px; padding:3px 9px; }
         .peak-label { position:absolute; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
                       padding:2px 6px; border-radius:4px; white-space:nowrap; pointer-events:none;
                       box-shadow:0 1px 4px rgba(0,0,0,.5); }
@@ -2196,7 +2196,7 @@ function initChart(){
         data:{
             labels:[],
             datasets:[
-               {label:'Prix',data:[],borderColor:'#3d7eff',borderWidth:1.8,pointRadius:0,fill:false,tension:0.08,order:1,
+               {label:'Prix',data:[],borderColor:'#e4fbff',borderWidth:1.8,pointRadius:0,fill:false,tension:0.08,order:1,
  segment:{ borderColor: tlSegmentColor }}
             ]
         },
@@ -2221,9 +2221,9 @@ function initChart(){
     });
     const gradCtx=document.getElementById('cryptoChart').getContext('2d');
     const gradient=gradCtx.createLinearGradient(0,0,0,400);
-    gradient.addColorStop(0,'rgba(61,126,255,0.12)');
-    gradient.addColorStop(0.5,'rgba(61,126,255,0.04)');
-    gradient.addColorStop(1,'rgba(61,126,255,0.00)');
+    gradient.addColorStop(0,'rgba(190,245,255,0.10)');
+    gradient.addColorStop(0.5,'rgba(190,245,255,0.035)');
+    gradient.addColorStop(1,'rgba(190,245,255,0.00)');
     chart.data.datasets[0].fill={target:'origin',above:gradient};
     chart.update('none');
 }
@@ -2495,13 +2495,13 @@ const smoothTipPlugin = {
         ctx.save();
         if(age>=0 && age<SMOOTH.pingMs){
             const k=age/SMOOTH.pingMs;
-            ctx.strokeStyle='rgba(110,165,255,'+(0.55*Math.pow(1-k,1.5)).toFixed(3)+')';
+            ctx.strokeStyle='rgba(200,248,255,'+(0.55*Math.pow(1-k,1.5)).toFixed(3)+')';
             ctx.lineWidth=1.6;
             ctx.beginPath(); ctx.arc(p.x,p.y,4+k*16,0,Math.PI*2); ctx.stroke();
         }
-        ctx.fillStyle='rgba(61,126,255,.25)';
+        ctx.fillStyle='rgba(170,240,255,.22)';
         ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#ffffff'; ctx.strokeStyle='#3d7eff'; ctx.lineWidth=1.8;
+        ctx.fillStyle='#ffffff'; ctx.strokeStyle='#5fe3f5'; ctx.lineWidth=1.8;
         ctx.beginPath(); ctx.arc(p.x,p.y,3.4,0,Math.PI*2); ctx.fill(); ctx.stroke();
         ctx.restore();
     }
@@ -2564,7 +2564,7 @@ let trendlineHover = null;   // tick sous le curseur pendant le tracé
 let trendlines     = [];     // {id, e1,e2, x1,y1,x2,y2}
 let nextTrendlineId = 1;
 /* Portions du prix colorées entre A et B (indices de ticks) */
-const TL_SEG_COLOR = '#a8a090';   // gris-beige ; change ici pour une autre teinte
+const TL_SEG_COLOR = '#ffd166';   // jaune doux, bien visible sur la courbe blanche
 let _tlRanges = [];
 function refreshTlRanges(){
     _tlRanges = [];
