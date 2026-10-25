@@ -451,6 +451,7 @@
         </div>
         <span id="bal-delta"></span>
     </div>
+    <button id="badge-btn" onclick="toggleBadges()" title="Badges"><img id="badge-btn-img" alt=""></button>
 </header>
 
 <!-- ═══ MAIN : graphique (gauche) + panneau de trade (droite) ═══ -->
@@ -592,6 +593,130 @@
     </div>
 </div>
 
+<!-- ═══ BADGES : style, page, notification ═══ -->
+<style>
+@property --tint { syntax:'<color>'; inherits:true; initial-value:#4b4b56; }
+
+/* ── bouton à côté du solde (garde la place même caché) ── */
+#acct-wrap { margin-right:0; }
+#badge-btn { position:relative; width:44px; height:44px; flex-shrink:0; margin-right:10px; padding:0; border:0; background:transparent;
+             cursor:pointer; display:flex; align-items:center; justify-content:center; visibility:hidden;
+             --bc:#cfd2da; --sc:1; transition:transform .15s; }
+#badge-btn.show { visibility:visible; }
+#badge-btn:hover { transform:scale(1.08); }
+#badge-btn img { width:100%; height:100%; object-fit:contain; transform:scale(var(--sc)); pointer-events:none; filter:drop-shadow(0 0 5px var(--bc)); }
+#badge-btn.on img { filter:drop-shadow(0 0 10px var(--bc)); }
+#badge-btn.dim img { filter:grayscale(1); opacity:.4; }
+#badge-btn.pop { animation:bdPop 1.7s cubic-bezier(.2,.8,.3,1); }
+#badge-btn.pop::after { content:''; position:absolute; inset:2px; border-radius:50%; border:2px solid var(--bc); pointer-events:none; animation:bdRing 1.4s ease-out; }
+@keyframes bdPop { 0%{transform:scale(.15) rotate(-30deg);opacity:0} 30%{transform:scale(1.5) rotate(10deg);opacity:1} 55%{transform:scale(.9) rotate(-4deg)} 78%{transform:scale(1.12)} 100%{transform:scale(1) rotate(0)} }
+@keyframes bdRing { 0%{transform:scale(.5);opacity:.9} 100%{transform:scale(2.6);opacity:0} }
+.bd-burst { position:fixed; width:6px; height:6px; border-radius:50%; pointer-events:none; z-index:96; }
+
+/* ── notification de déblocage ── */
+#badge-toast { position:fixed; top:6px; right:200px; height:40px; max-width:420px; display:none; align-items:center; gap:10px; padding:0 16px 0 8px;
+               border-radius:20px; background:rgba(14,17,28,.97); border:1px solid var(--bc,#3d7eff); z-index:96; pointer-events:none;
+               filter:drop-shadow(0 0 8px var(--bc,#3d7eff)); font-family:'Montserrat',sans-serif; overflow:hidden; }
+#badge-toast.show { display:flex; animation:bdToast 4.2s ease forwards; }
+#badge-toast img { width:30px; height:30px; object-fit:contain; flex-shrink:0; }
+#badge-toast b { display:block; font-size:13px; letter-spacing:.6px; color:var(--bc,#fff); line-height:1.15; }
+#badge-toast span { display:block; font-size:10px; color:#aab1c8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2; }
+@keyframes bdToast { 0%{opacity:0;transform:translateX(34px)} 9%{opacity:1;transform:translateX(0)} 88%{opacity:1;transform:translateX(0)} 100%{opacity:0;transform:translateX(12px)} }
+
+/* ── page des badges (sous l'en-tête : logo + solde restent visibles) ── */
+body.badges-open #tabs, body.badges-open .add-tab { visibility:hidden; }
+#badges-page { position:fixed; left:0; right:0; top:52px; bottom:0; z-index:25; display:none; overflow:auto;
+               border-radius:14px 0 0 0; --tint:#4b4b56; transition:--tint .6s ease;
+               background:
+                 radial-gradient(ellipse 62% 75% at 100% 60%, var(--tint) 0%, transparent 72%),
+                 radial-gradient(ellipse 55% 60% at 0% 100%, rgba(125,25,165,.55) 0%, transparent 70%),
+                 linear-gradient(100deg,#2b2145 0%,#352a52 50%,#2e2a40 100%); }
+#badges-page.open { display:flex; }
+#bd-stage { position:relative; flex:none; margin:auto; overflow:hidden; aspect-ratio:1912/895; container-type:inline-size;
+            width:max(900px,min(100vw,calc((100vh - 52px)*2.136)));
+            font-family:'Montserrat',sans-serif; color:#d8d3ea; user-select:none; }
+@supports (height:100dvh) { #bd-stage { width:max(900px,min(100vw,calc((100dvh - 52px)*2.136))); } }
+#bd-stage > * { position:absolute; }
+
+#bd-ghost { left:-5cqw; bottom:-7cqw; width:30cqw; height:30cqw; object-fit:contain; filter:brightness(0); opacity:.2; pointer-events:none; }
+#bd-acct  { left:1.83cqw; top:4cqw; font-size:1.36cqw; font-weight:300; color:#b6b0cf; letter-spacing:.02em; line-height:1.1; }
+#bd-title { left:1.83cqw; top:6.4cqw; font-size:2.62cqw; font-weight:700; color:#908bb0; white-space:nowrap; line-height:1.1; }
+#bd-note  { left:2.1cqw; top:11.1cqw; width:15cqw; font-size:1cqw; line-height:1.17; font-style:italic; font-weight:300; color:#bdb8d4; }
+#bd-ulogo { left:3.1cqw; top:35cqw; width:4.3cqw; }
+
+#bd-grid  { left:20.2cqw; top:16.4cqw; display:grid; grid-template-columns:repeat(3,11.8cqw); column-gap:5.75cqw; row-gap:2.85cqw; }
+#bd-titan { left:15.4cqw; top:33.1cqw; width:52cqw; height:7cqw; }
+
+/* bannières */
+.bd-card { position:relative; height:4.8cqw; cursor:pointer; transition:transform .15s, filter .3s; }
+.bd-card:hover { transform:translateY(-.2cqw); }
+.bd-name { position:absolute; left:2.6cqw; top:-1.05cqw; z-index:0; font-size:1.4cqw; font-weight:600; line-height:1.2; color:rgba(215,210,235,.62); white-space:nowrap; }
+.bd-panel { position:relative; z-index:1; height:100%; border-radius:.75cqw; padding:0 .5cqw 0 2.35cqw; display:flex; flex-direction:column; justify-content:center; gap:.12cqw;
+            background:linear-gradient(180deg,rgba(150,66,185,.8) 0%,rgba(128,58,165,.66) 52%,rgba(var(--bcr),.82) 100%);
+            box-shadow:inset 0 0 0 1px rgba(255,255,255,.1); }
+.bd-reach { font-size:.8cqw; font-weight:500; color:rgba(255,255,255,.88); line-height:1.1; }
+.bd-amt   { font-size:1.15cqw; font-weight:500; color:#fff; line-height:1.15; white-space:nowrap; }
+.bd-tag   { font-size:.66cqw; font-style:italic; color:rgba(255,255,255,.45); line-height:1.2; white-space:nowrap; }
+.bd-ico   { position:absolute; z-index:2; left:-1.7cqw; top:-1.9cqw; width:4.3cqw; height:4.3cqw; pointer-events:none; }
+.bd-ico img { width:100%; height:100%; object-fit:contain; transform:scale(var(--sc)); }
+.bd-card.on .bd-ico img { filter:drop-shadow(0 0 .45cqw rgba(var(--bcr),.65)); }
+.bd-card.sel .bd-panel { box-shadow:0 0 0 .13cqw rgba(255,255,255,.7), 0 0 1.2cqw rgba(var(--bcr),.55); }
+/* badge pas encore débloqué = tout en gris */
+.bd-card.locked { filter:grayscale(1); }
+.bd-card.locked .bd-panel { background:linear-gradient(180deg,rgba(125,125,140,.62),rgba(98,98,114,.62)); }
+.bd-card.locked .bd-name { color:rgba(190,190,205,.45); }
+/* bannière TITAN */
+.bd-card.big { height:100%; }
+.bd-card.big .bd-panel { flex-direction:row; align-items:center; justify-content:space-between; padding:0 5.3cqw 0 6.8cqw; border-radius:.9cqw;
+                         background:linear-gradient(90deg,rgba(120,40,160,.92) 0%,rgba(122,66,142,.82) 45%,rgba(140,112,66,.95) 100%); }
+.bd-card.big.locked .bd-panel { background:linear-gradient(90deg,rgba(110,110,125,.7),rgba(98,98,110,.7)); }
+.bd-card.big .bd-tl { display:flex; flex-direction:column; }
+.bd-card.big .bd-tl1 { display:flex; align-items:baseline; gap:1.4cqw; }
+.bd-card.big .bd-reach { font-size:1.05cqw; }
+.bd-card.big .bd-amt { font-size:2.9cqw; font-weight:600; }
+.bd-card.big .bd-tag { font-size:1.7cqw; color:rgba(255,255,255,.88); margin-left:4.3cqw; }
+.bd-card.big .bd-bigname { font-size:3.7cqw; font-weight:800; color:rgba(240,225,185,.9); }
+.bd-card.big .bd-ico { left:.5cqw; top:.45cqw; width:6cqw; height:6cqw; }
+
+/* grand affichage à droite */
+#bd-right { left:72.6cqw; top:5.65cqw; width:24cqw; display:flex; flex-direction:column; align-items:center; text-align:center; }
+#bd-name  { font-size:2.93cqw; font-weight:800; line-height:1.1; color:#9d90f5; }
+#bd-state { margin-top:.25cqw; font-size:1.25cqw; font-style:italic; font-weight:600; color:#8f8aae; }
+#bd-big   { position:relative; width:24cqw; height:24cqw; margin-top:-1.2cqw; --bc:#cfd2da; --bcr:205,208,218; --sc:1; }
+#bd-big img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; transform:scale(var(--sc)); }
+#bd-big.locked img { filter:grayscale(1) brightness(.8); opacity:.92; }
+#bd-big.on::before { content:''; position:absolute; inset:10%; border-radius:50%; background:radial-gradient(circle,rgba(var(--bcr),.38) 0%,transparent 68%); animation:bdBreath 3s ease-in-out infinite; }
+@keyframes bdBreath { 50% { transform:scale(1.12); opacity:.7; } }
+#bd-parts { position:absolute; inset:8%; pointer-events:none; }
+#bd-parts i { position:absolute; border-radius:50%; background:var(--bc); opacity:0;
+              box-shadow:0 0 .5cqw var(--bc), 0 0 1cqw rgba(var(--bcr),.7); animation:bdTwinkle 2.4s ease-in-out infinite; }
+@keyframes bdTwinkle { 0%{opacity:0;transform:translateY(0) scale(.3)} 35%{opacity:1;transform:translateY(-.6cqw) scale(1)} 100%{opacity:0;transform:translateY(-2.6cqw) scale(.2)} }
+#bd-tagline { margin-top:-.95cqw; font-size:1.46cqw; font-style:italic; color:#fff; }
+#bd-reqlbl, #bd-req { font-size:2.4cqw; font-style:italic; font-weight:700; color:rgba(190,185,205,.5); line-height:1.1; }
+#bd-reqlbl { margin-top:1.45cqw; }
+#bd-req { margin-top:.16cqw; }
+</style>
+
+<div id="badges-page">
+    <div id="bd-stage">
+        <img id="bd-ghost" alt="">
+        <div id="bd-acct"></div>
+        <div id="bd-title">Balance Badges Levels</div>
+        <div id="bd-note">To unlock each level, you must make the required deposit; once the necessary amount is reached, the level will be unlocked. Alternatively, you can reach the required amount through trading. Please note that badges are awarded exclusively within our app and apply only to Step Index trades—they are not global.</div>
+        <img id="bd-ulogo" src="BADGES-LEVELS/U-LOGO.png" alt="U" onerror="this.style.display='none'">
+        <div id="bd-grid"></div>
+        <div id="bd-titan"></div>
+        <div id="bd-right">
+            <div id="bd-name"></div>
+            <div id="bd-state"></div>
+            <div id="bd-big"><img id="bd-big-img" alt=""><div id="bd-parts"></div></div>
+            <div id="bd-tagline"></div>
+            <div id="bd-reqlbl">REQUIRED</div>
+            <div id="bd-req"></div>
+        </div>
+    </div>
+</div>
+<div id="badge-toast"></div>
 
 <!-- ═══ LANDING PAGE ═══ -->
 <div id="landing">
@@ -1741,7 +1866,8 @@ function renderAccountUI(){
     const cur = derivAccounts.find(a=>a.account_id===activeAccountId) || derivAccounts[0];
     btn.className = cur.account_type==='demo' ? 'demo' : '';
     document.getElementById('acct-type').innerText = acctLabel(cur);
-    animateBalance(cur.account_id, accountBalances[cur.account_id], cur.currency);
+        animateBalance(cur.account_id, accountBalances[cur.account_id], cur.currency);
+    if(typeof badgeSync==='function') badgeSync();
     menu.innerHTML = derivAccounts.map(a=>
         '<div class="acct-row '+(a.account_type==='demo'?'demo':'real')+(a.account_id===activeAccountId?' current':'')+'" data-id="'+a.account_id+'">'
         + '<span>'+acctLabel(a)+'</span><span class="bal">'+fmtMoney(accountBalances[a.account_id], a.currency)+'</span></div>'
@@ -1850,7 +1976,8 @@ function setBtnConnect(cls,txt){
     b.className='acct-connect'+(cls && !connected ? ' '+cls : '');
     if(txt) b.innerText=txt;
     b.style.display = connected ? 'none' : '';
-    document.getElementById('acct-box').style.display = connected ? '' : 'none';
+        document.getElementById('acct-box').style.display = connected ? '' : 'none';
+    if(typeof badgeSync==='function') badgeSync();
 }
 
 /* ════════════════════════════════════════════
@@ -4285,6 +4412,203 @@ function setLoading(key, on){
         if(on) _loadSafety = setTimeout(()=>setLoading('data', false), 20000);   // sécurité : jamais bloqué plus de 20 s
     }
 }
+/* ════════════════════════════════════════════
+   BADGES DE SOLDE — compte RÉEL uniquement
+   ─────────────────────────────────────────
+   Un badge débloqué reste acquis (mémorisé par compte dans le navigateur),
+   même si le solde redescend. sc = échelle de l'image (ajuste si un logo
+   paraît trop grand / petit). min = solde à atteindre.
+════════════════════════════════════════════ */
+const BADGE_DIR = 'BADGES-LEVELS/';
+const BADGE_KEY = 'unitie_badge_lvl_';
+const BADGES = [
+    {key:'tick',     name:'TICK',     min:0.01,    reach:'0.01$ to 9.99$', req:'0.01$',      tag:'First step to becoming a Titan', file:'1-TICK.png',     col:'#d3d6df', rgb:'205,208,218', tint:'#4b4b56', sc:1.00},
+    {key:'novice',   name:'NOVICE',   min:10,      reach:'10$',            req:'10$',        tag:'The first movement',             file:'2-NOVICE.png',   col:'#4dff1a', rgb:'77,255,26',   tint:'#245f12', sc:1.00},
+    {key:'operator', name:'OPERATOR', min:100,     reach:'100$',           req:'100$',       tag:'Capital takes shape',            file:'3-OPERATOR.png', col:'#25b6f6', rgb:'37,182,246',  tint:'#0f4d7a', sc:0.90},
+    {key:'expert',   name:'EXPERT',   min:1000,    reach:'1,000$',         req:'1,000$',     tag:'The trend is on your side',      file:'4-EXPERT.png',   col:'#f2b600', rgb:'242,182,0',   tint:'#6b4e0a', sc:1.05},
+    {key:'admin',    name:'ADMIN',    min:10000,   reach:'10,000$',        req:'10,000$',    tag:'Above the market',               file:'5-ADMIN.png',    col:'#e23dff', rgb:'226,61,255',  tint:'#6a1b80', sc:0.90},
+    {key:'legende',  name:'LEGENDE',  min:100000,  reach:'100,000$',       req:'100,000$',   tag:"You're moving the order book",   file:'6-LEGENDE.png',  col:'#ffd23c', rgb:'255,210,60',  tint:'#6b5a18', sc:0.88},
+    {key:'titan',    name:'TITAN',    min:1000000, reach:'1,000,000$',     req:'1,000,000$', tag:'The Seven-Figure Club',          file:'7-TITAN.png',    col:'#ffc860', rgb:'255,200,96',  tint:'#6a4a2c', sc:0.92}
+];
+BADGES.forEach(b=>{ b.img = BADGE_DIR + b.file; });
+
+let badgeLevel = -1;       // niveau réellement acquis (-1 = aucun)
+let badgeShown = -1;       // niveau affiché à côté du solde (en retard pendant l'animation)
+let badgeAcct  = null;
+let badgeSel   = 0;        // badge affiché en grand dans la page
+let badgesOpen = false, badgePending = false, badgeCelT = null, badgeToastT = null, badgeRenderKey = '';
+const bdE = id => document.getElementById(id);
+
+function badgeLevelFor(bal){
+    let l = -1;
+    for(let i=0;i<BADGES.length;i++){ if(bal + 1e-9 >= BADGES[i].min) l = i; }
+    return l;
+}
+function badgeSave(id,l){ try{ localStorage.setItem(BADGE_KEY+id, String(l)); }catch(e){} }
+/* compte actif, seulement s'il est RÉEL */
+function badgeRealAccount(){
+    if(!derivAccounts.length || !activeAccountId) return null;
+    const a = derivAccounts.find(x=>x.account_id===activeAccountId);
+    return (a && a.account_type!=='demo') ? a : null;
+}
+
+/* icône à côté du solde */
+function paintBadgeBtn(){
+    const btn=bdE('badge-btn'), img=bdE('badge-btn-img'); if(!btn||!img) return;
+    const b = BADGES[Math.max(0,badgeShown)];
+    if(img.getAttribute('data-k')!==b.key){ img.src=b.img; img.setAttribute('data-k',b.key); }
+    btn.style.setProperty('--bc',b.col);
+    btn.style.setProperty('--sc',b.sc);
+    btn.classList.toggle('dim', badgeShown<0);
+}
+
+/* petites particules qui jaillissent de l'icône */
+function bdBurst(el,color){
+    const r=el.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    for(let k=0;k<18;k++){
+        const p=document.createElement('i'); p.className='bd-burst';
+        p.style.cssText='left:'+cx+'px;top:'+cy+'px;background:'+color+';box-shadow:0 0 8px '+color;
+        document.body.appendChild(p);
+        const a=Math.random()*Math.PI*2, d=26+Math.random()*54;
+        p.animate([
+            {transform:'translate(-50%,-50%) scale(1)', opacity:1},
+            {transform:'translate(calc(-50% + '+(Math.cos(a)*d).toFixed(1)+'px),calc(-50% + '+(Math.sin(a)*d).toFixed(1)+'px)) scale(0)', opacity:0}
+        ],{duration:900+Math.random()*700, easing:'cubic-bezier(.2,.7,.3,1)'}).onfinish=()=>p.remove();
+    }
+}
+/* notification à gauche du solde */
+function showBadgeToast(i){
+    const t=bdE('badge-toast'), w=bdE('acct-wrap'); if(!t||!w) return;
+    const b=BADGES[i], r=w.getBoundingClientRect();
+    t.style.right = Math.max(8, Math.round(window.innerWidth - r.left + 12)) + 'px';
+    t.style.setProperty('--bc',b.col);
+    t.innerHTML='<img src="'+b.img+'" alt="" style="transform:scale('+b.sc+')"><div><b>'+b.name+'</b><span>Badge unlocked · '+b.tag+'</span></div>';
+    t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+    clearTimeout(badgeToastT);
+    badgeToastT=setTimeout(()=>t.classList.remove('show'),4300);
+}
+/* animation de déblocage : l'icône change, rebondit, anneau + particules + notification */
+function badgeCelebrate(i){
+    const btn=bdE('badge-btn'); if(!btn) return;
+    paintBadgeBtn();
+    btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
+    setTimeout(()=>btn.classList.remove('pop'),1800);
+    bdBurst(btn, BADGES[i].col);
+    showBadgeToast(i);
+}
+
+/* appelée à chaque mise à jour du solde / du compte */
+function badgeSync(){
+    const btn=bdE('badge-btn'); if(!btn) return;
+    const acc=badgeRealAccount();
+    if(!acc){                                   // démo ou déconnecté : fonction désactivée
+        clearTimeout(badgeCelT); badgePending=false;
+        btn.classList.remove('show','on');
+        badgeAcct=null; badgeLevel=-1; badgeShown=-1;
+        if(badgesOpen) closeBadges();
+        return;
+    }
+    const box=bdE('acct-box');
+    btn.classList.toggle('show', !box || box.style.display!=='none');
+
+    const id=acc.account_id, bal=accountBalances[id];
+    const known=(bal!=null && !isNaN(bal));
+    let stored=null;
+    try{ const s=localStorage.getItem(BADGE_KEY+id); if(s!==null && !isNaN(parseInt(s,10))) stored=parseInt(s,10); }catch(e){}
+    const calc = known ? badgeLevelFor(bal) : -1;
+    const switched = (badgeAcct!==id);
+    let lvl = (stored==null) ? -1 : stored, celebrate=false;
+    if(stored==null){
+        if(known){ lvl=calc; badgeSave(id,lvl); }          // première fois : on enregistre sans fête
+    } else if(calc>stored){
+        lvl=calc; badgeSave(id,lvl); celebrate=true;       // nouveau badge !
+    }
+    badgeAcct=id; badgeLevel=lvl;
+
+    if(switched){
+        clearTimeout(badgeCelT); badgePending=false;
+        badgeShown = celebrate ? stored : lvl;
+        paintBadgeBtn();
+    }
+    if(celebrate){
+        badgePending=true;
+        clearTimeout(badgeCelT);
+        /* on attend la fin du défilement du solde avant d'annoncer le badge */
+        badgeCelT=setTimeout(()=>{
+            badgePending=false;
+            if(badgeAcct!==id) return;
+            badgeShown=badgeLevel; badgeCelebrate(badgeShown);
+        }, BAL_ANIM_MS+150);
+    } else if(!badgePending){
+        badgeShown=lvl; paintBadgeBtn();
+    }
+    if(badgesOpen && badgeRenderKey!==(badgeAcct+'|'+badgeLevel)) renderBadgesPage();
+}
+
+/* ── page des badges ── */
+function toggleBadges(){ if(badgesOpen) closeBadges(); else openBadges(); }
+function openBadges(){
+    if(!badgeRealAccount()) return;
+    badgeSel=Math.max(0,badgeLevel);
+    badgesOpen=true;
+    bdE('badges-page').classList.add('open');
+    document.body.classList.add('badges-open');
+    bdE('badge-btn').classList.add('on');
+    renderBadgesPage();
+}
+function closeBadges(){
+    badgesOpen=false;
+    const p=bdE('badges-page'); if(p) p.classList.remove('open');
+    document.body.classList.remove('badges-open');
+    const b=bdE('badge-btn'); if(b) b.classList.remove('on');
+}
+function bdCard(i){
+    const b=BADGES[i], on=(i<=badgeLevel), big=(i===BADGES.length-1);
+    const cls='bd-card'+(big?' big':'')+(on?' on':' locked')+(i===badgeSel?' sel':'');
+    const st='--bc:'+b.col+';--bcr:'+b.rgb+';--sc:'+b.sc;
+    const ico='<div class="bd-ico"><img src="'+b.img+'" alt=""></div>';
+    const inner = big
+        ? '<div class="bd-panel"><div class="bd-tl"><div class="bd-tl1"><span class="bd-reach">REACH</span><span class="bd-amt">'+b.reach+'</span></div><span class="bd-tag">'+b.tag+'</span></div><div class="bd-bigname">'+b.name+'</div></div>'+ico
+        : '<div class="bd-name">'+b.name+'</div><div class="bd-panel"><span class="bd-reach">REACH</span><span class="bd-amt">'+b.reach+'</span><span class="bd-tag">'+b.tag+'</span></div>'+ico;
+    return '<div class="'+cls+'" data-i="'+i+'" style="'+st+'">'+inner+'</div>';
+}
+function bdParticles(n){
+    let h='';
+    for(let k=0;k<n;k++){
+        const x=8+Math.random()*84, y=8+Math.random()*84, s=0.1+Math.random()*0.22, d=1.8+Math.random()*2.4, dl=-Math.random()*4;
+        h+='<i style="left:'+x.toFixed(1)+'%;top:'+y.toFixed(1)+'%;width:'+s.toFixed(2)+'cqw;height:'+s.toFixed(2)+'cqw;animation-duration:'+d.toFixed(2)+'s;animation-delay:'+dl.toFixed(2)+'s"></i>';
+    }
+    return h;
+}
+function renderBadgesPage(){
+    const page=bdE('badges-page'); if(!page || !badgesOpen) return;
+    const sel=BADGES[badgeSel], unlocked=(badgeSel<=badgeLevel);
+    badgeRenderKey = badgeAcct+'|'+badgeLevel;
+    page.style.setProperty('--tint', sel.tint);
+    bdE('bd-ghost').src = sel.img;                       // logo du badge en gris foncé derrière le texte
+    bdE('bd-acct').textContent = badgeAcct || '';
+    bdE('bd-grid').innerHTML  = [0,1,2,3,4,5].map(bdCard).join('');
+    bdE('bd-titan').innerHTML = bdCard(6);
+    bdE('bd-name').textContent  = sel.name;
+    bdE('bd-state').textContent = unlocked ? 'BADGE UNLOCK' : 'BADGE LOCKED';
+    const big=bdE('bd-big');
+    big.className = unlocked ? 'on' : 'locked';
+    big.style.setProperty('--bc', sel.col);
+    big.style.setProperty('--bcr', sel.rgb);
+    big.style.setProperty('--sc', sel.sc);
+    bdE('bd-big-img').src = sel.img;
+    bdE('bd-parts').innerHTML = unlocked ? bdParticles(24) : '';
+    bdE('bd-tagline').textContent = sel.tag;
+    bdE('bd-req').textContent = sel.req;
+}
+(function initBadges(){
+    const page=bdE('badges-page');
+    if(page) page.addEventListener('click',e=>{
+        const c=e.target.closest('.bd-card'); if(!c) return;
+        badgeSel=parseInt(c.dataset.i,10); renderBadgesPage();
+    });
+    window.addEventListener('keydown',e=>{ if(e.key==='Escape' && badgesOpen) closeBadges(); });
+})();
 bootUnitie().catch(function(e){ console.warn(e); });
 </script>
 </body>
