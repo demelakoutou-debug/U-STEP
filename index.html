@@ -450,6 +450,8 @@
              <div id="acct-menu"></div>
         </div>
         <span id="bal-delta"></span>
+        <button id="badge-btn" onclick="openBadges()" title="Badges"><img alt=""></button>
+        <div id="badge-toast"><img alt=""><div><div class="bt-t">BADGE DÉBLOQUÉ</div><div class="bt-n">—</div></div></div>
     </div>
 </header>
 
@@ -592,6 +594,8 @@
     </div>
 </div>
 
+<!-- ═══ PAGE DES BADGES ═══ -->
+<div id="badges-page"></div>
 
 <!-- ═══ LANDING PAGE ═══ -->
 <div id="landing">
@@ -635,6 +639,91 @@ body{font-family:Inter,system-ui,-apple-system,Arial,sans-serif;background:#0d0f
  #exp-pill, #trade-feedback-bar { right:84px; }
 #tl-stats { right:84px; max-width:calc(100% - 110px); }
  @media (max-width: 900px) { #tl-stats { right:80px; } }
+
+         /* ═════ BADGES ═════ */
+        #badge-btn { position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); width:36px; height:36px;
+                     border:0; background:transparent; cursor:pointer; padding:0; display:none; align-items:center; justify-content:center; }
+        #badge-btn.show { display:flex; }
+        #badge-btn img { max-width:none; transition:transform .15s; }
+        #badge-btn:hover img { transform:scale(1.12); }
+        #badge-btn.locked img { filter:grayscale(1) opacity(.6); }
+        #badge-btn.pop img { animation:badgePop 1.8s ease-out; }
+        @keyframes badgePop {
+            0%   { transform:scale(.3) rotate(-25deg); opacity:0; filter:drop-shadow(0 0 0 var(--bc)); }
+            25%  { transform:scale(1.8) rotate(8deg);  opacity:1; filter:drop-shadow(0 0 16px var(--bc)); }
+            60%  { transform:scale(1.3) rotate(-4deg); filter:drop-shadow(0 0 12px var(--bc)); }
+            100% { transform:scale(1) rotate(0);       filter:drop-shadow(0 0 0 transparent); }
+        }
+        #badge-toast { position:absolute; right:-60px; top:calc(100% + 8px); z-index:36; display:none; align-items:center; gap:10px;
+                       padding:8px 16px 8px 8px; border-radius:14px; background:rgba(15,18,28,.96); border:1px solid var(--bc);
+                       box-shadow:0 8px 28px rgba(0,0,0,.6),0 0 18px var(--bc); white-space:nowrap; pointer-events:none; }
+        #badge-toast.go { display:flex; animation:badgeToast 2.4s ease forwards; }
+        #badge-toast img { width:42px; height:42px; object-fit:contain; }
+        #badge-toast .bt-t { font-size:9px; letter-spacing:.12em; color:#8a93ad; font-weight:600; }
+        #badge-toast .bt-n { font-size:16px; font-weight:800; color:var(--bc); }
+        @keyframes badgeToast {
+            0%   { opacity:0; transform:translateY(-10px) scale(.9); }
+            12%  { opacity:1; transform:none; }
+            80%  { opacity:1; transform:none; }
+            100% { opacity:0; transform:translateY(6px); }
+        }
+
+        body.badges-open #tabs, body.badges-open .add-tab { display:none; }
+        #badges-page { position:fixed; left:0; right:0; top:52px; bottom:0; z-index:25; display:none; overflow:auto; color:#fff;
+                       border-radius:22px 0 0 0;
+                       background:radial-gradient(ellipse at 90% 40%, rgba(var(--bt,140,140,150),.5) 0%, rgba(var(--bt,140,140,150),0) 60%),
+                                  linear-gradient(120deg,#4b0f70 0%,#372552 48%,#2b2a38 100%); }
+        #badges-page.open { display:block; }
+        #bp-wm { position:absolute; left:-2%; top:30%; width:34vw; max-width:520px; opacity:.07; filter:grayscale(1) brightness(2); pointer-events:none; z-index:0; }
+        #bp-in { position:relative; z-index:1; min-height:100%; display:grid; padding:4vh 3vw;
+                 grid-template-columns:minmax(210px,24%) 1fr minmax(280px,31%); grid-template-rows:auto 1fr auto; column-gap:26px;
+                 grid-template-areas:"head head big" "note grid big" "logo titan big"; }
+        .bp-head { grid-area:head; }
+        .bp-id { font-size:clamp(16px,1.6vw,24px); font-weight:300; color:#a8a3c0; margin-bottom:4px; }
+        .bp-title { font-size:clamp(28px,3.4vw,50px); font-weight:600; color:#8f8bab; line-height:1.1; }
+        .bp-note { grid-area:note; align-self:start; margin-top:3vh; max-width:300px; font-size:clamp(11px,1.15vw,16px);
+                   font-style:italic; font-weight:500; line-height:1.28; color:#a49fc0; }
+        .bp-grid { grid-area:grid; display:grid; grid-template-columns:repeat(3,1fr); column-gap:3vw; row-gap:46px; align-content:center; padding:28px 0 10px 34px; }
+        .bp-logo { grid-area:logo; align-self:end; }
+        .bp-logo img { width:clamp(56px,6vw,90px); display:block; }
+        .bp-card { position:relative; cursor:pointer; border-radius:10px; padding:26px 12px 8px 58px; min-height:92px;
+                   background:linear-gradient(180deg,rgba(255,255,255,.16) 0%,rgba(var(--cc),.5) 100%);
+                   box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); transition:transform .15s, box-shadow .15s; }
+        .bp-card:hover { transform:translateY(-2px); }
+        .bp-card.sel { box-shadow:0 0 0 2px rgba(255,255,255,.55); }
+        .bp-card.locked { filter:grayscale(1); opacity:.8; }
+        .bp-icw { position:absolute; left:-34px; top:-44px; width:88px; height:88px; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+        .bp-icw img { max-width:none; }
+        .bp-nm { position:absolute; top:-30px; left:56px; font-size:clamp(18px,2vw,27px); font-weight:700; color:#9a94bf; letter-spacing:.5px; }
+        .bp-rc { font-size:13px; color:#ebe8f6; }
+        .bp-am { font-size:clamp(18px,1.9vw,28px); font-weight:500; line-height:1.15; }
+        .bp-sl { font-size:12px; font-style:italic; color:rgba(255,255,255,.45); margin-top:2px; }
+        .bp-titan { grid-area:titan; margin-top:36px; display:flex; align-items:center; justify-content:space-between; padding:12px 28px 12px 112px;
+                    background:linear-gradient(90deg,rgba(130,50,160,.8) 0%,rgba(110,70,125,.75) 50%,rgba(145,118,72,.9) 100%); }
+        .bp-titan .bp-icw { left:14px; top:-24px; width:92px; height:92px; }
+        .bp-titan .tt-top { display:flex; align-items:baseline; gap:12px; }
+        .bp-titan .tt-top .bp-am { font-size:clamp(26px,3.2vw,46px); }
+        .bp-titan .tt-sl { font-size:clamp(14px,1.6vw,22px); font-style:italic; }
+        .bp-titan .tt-nm { font-size:clamp(34px,5vw,72px); font-weight:800; color:#d9d0c8; letter-spacing:1px; }
+        .bp-big { grid-area:big; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+        .bg-name { font-size:clamp(40px,5vw,76px); font-weight:800; color:#8e8cf5; line-height:1; }
+        .bg-sub { font-size:clamp(14px,1.5vw,22px); font-style:italic; font-weight:600; color:#8d88a8; margin-top:4px; }
+        .bg-img { position:relative; width:clamp(230px,24vw,380px); aspect-ratio:1; margin:2vh 0; }
+        .bg-img img { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); max-width:none; }
+        .bp-big:not(.locked) .bg-img img { filter:drop-shadow(0 0 26px rgba(var(--cc),.55)); animation:bgFloat 3.4s ease-in-out infinite; }
+        .bp-big.locked .bg-img img { filter:grayscale(1); }
+        @keyframes bgFloat { 0%,100%{ transform:translate(-50%,-50%) scale(1); } 50%{ transform:translate(-50%,-53%) scale(1.03); } }
+        .spk { position:absolute; border-radius:50%; background:rgb(var(--cc)); box-shadow:0 0 10px 2px rgba(var(--cc),.9);
+               opacity:0; pointer-events:none; animation:spk 2.6s ease-in-out infinite; z-index:2; }
+        @keyframes spk { 0%{ opacity:0; transform:translateY(10px) scale(.4); } 30%{ opacity:1; } 100%{ opacity:0; transform:translateY(-60px) scale(1.1); } }
+        .bg-sl { font-size:clamp(16px,1.7vw,26px); font-style:italic; color:#ece9f7; }
+        .bg-rq { margin-top:3vh; font-size:clamp(28px,3.2vw,50px); font-weight:600; font-style:italic; color:rgba(255,255,255,.35); line-height:1.1; }
+        @media (max-width: 900px) {
+            #bp-in { grid-template-columns:1fr; grid-template-rows:none; grid-template-areas:"head" "big" "grid" "titan" "note" "logo"; }
+            .bp-grid { grid-template-columns:repeat(2,1fr); padding-left:34px; }
+            .bp-big { margin:3vh 0; }
+        }
+        @media (max-width: 560px) { .bp-grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -1742,6 +1831,7 @@ function renderAccountUI(){
     btn.className = cur.account_type==='demo' ? 'demo' : '';
     document.getElementById('acct-type').innerText = acctLabel(cur);
     animateBalance(cur.account_id, accountBalances[cur.account_id], cur.currency);
+    updateBadges(cur);
     menu.innerHTML = derivAccounts.map(a=>
         '<div class="acct-row '+(a.account_type==='demo'?'demo':'real')+(a.account_id===activeAccountId?' current':'')+'" data-id="'+a.account_id+'">'
         + '<span>'+acctLabel(a)+'</span><span class="bal">'+fmtMoney(accountBalances[a.account_id], a.currency)+'</span></div>'
@@ -1851,6 +1941,7 @@ function setBtnConnect(cls,txt){
     if(txt) b.innerText=txt;
     b.style.display = connected ? 'none' : '';
     document.getElementById('acct-box').style.display = connected ? '' : 'none';
+    if(!connected) updateBadges(null);
 }
 
 /* ════════════════════════════════════════════
@@ -3795,7 +3886,7 @@ function confirmIndSettings(){
 window.addEventListener('keydown',e=>{
     if(document.getElementById('ind-modal').classList.contains('open')){
         if(e.key==='Escape') closeIndSettings(); else if(e.key==='Enter') confirmIndSettings();
-    } else if(e.key==='Escape') closeMenus();
+    } else if(e.key==='Escape'){ closeMenus(); closeBadges(); }
 });
 
 /* ════════════════════════════════════════════
@@ -4284,6 +4375,137 @@ function setLoading(key, on){
         clearTimeout(_loadSafety);
         if(on) _loadSafety = setTimeout(()=>setLoading('data', false), 20000);   // sécurité : jamais bloqué plus de 20 s
     }
+}
+
+/* ════════════════════════════════════════════
+   BADGES DE SOLDE — compte RÉEL uniquement
+   ─────────────────────────────────────────
+   Le niveau le plus haut atteint est mémorisé (localStorage, par compte) :
+   il ne redescend jamais, même si le solde baisse.
+   k = facteur de taille de l'icône (les PNG n'ont pas tous les mêmes marges)
+════════════════════════════════════════════ */
+const BADGE_DIR = 'BADGES-LEVELS/';
+const BADGES = [
+    {name:'TICK',     min:0.01,    req:'0.01$',      range:'0.01$ to 9.99$', slogan:'First step to becoming a Titan', file:'1-TICK.png',     cc:'190,190,200', k:1.1},
+    {name:'NOVICE',   min:10,      req:'10$',        slogan:'The first movement',            file:'2-NOVICE.png',   cc:'68,255,0',    k:1.1},
+    {name:'OPERATOR', min:100,     req:'100$',       slogan:'Capital takes shape',           file:'3-OPERATOR.png', cc:'11,180,245',  k:1},
+    {name:'EXPERT',   min:1000,    req:'1,000$',     slogan:'The trend is on your side',     file:'4-EXPERT.png',   cc:'232,160,10',  k:1.1},
+    {name:'ADMIN',    min:10000,   req:'10,000$',    slogan:'Above the market',              file:'5-ADMIN.png',    cc:'200,40,255',  k:1},
+    {name:'LEGENDE',  min:100000,  req:'100,000$',   slogan:"You're moving the order book",  file:'6-LEGENDE.png',  cc:'255,201,51',  k:1},
+    {name:'TITAN',    min:1000000, req:'1,000,000$', slogan:'The Seven-Figure Club',         file:'7-TITAN.png',    cc:'232,176,98',  k:1}
+];
+const BADGE_NOTE = 'To unlock each level, you must make the required deposit; once the necessary amount is reached, the level will be unlocked. Alternatively, you can reach the required amount through trading. Please note that badges are awarded exclusively within our app and apply only to Step Index trades—they are not global.';
+let badgeLvl = -1, badgeSel = 0, badgeAcct = null, badgesOpen = false, badgeNotifyT = null;
+
+function badgeKey(id){ return 'unitie_badge_lvl_' + id; }
+function badgeFromBalance(b){
+    let l = -1;
+    for(let i=0;i<BADGES.length;i++) if(b >= BADGES[i].min) l = i;
+    return l;
+}
+function setBadgeIcon(lvl){
+    const btn = document.getElementById('badge-btn'), img = btn.querySelector('img');
+    const b = BADGES[Math.max(0,lvl)];
+    img.src = BADGE_DIR + b.file;
+    img.style.width = img.style.height = (36*b.k) + 'px';
+    btn.classList.toggle('locked', lvl < 0);
+    btn.style.setProperty('--bc', 'rgb(' + b.cc + ')');
+}
+function updateBadges(acct){
+    const btn = document.getElementById('badge-btn');
+    if(!btn) return;
+    if(!acct || acct.account_type === 'demo'){
+        btn.classList.remove('show'); badgeAcct = null; badgeLvl = -1;
+        closeBadges();
+        return;
+    }
+    const id = acct.account_id, bal = accountBalances[id];
+    let stored = -1;
+    try{ const s = parseInt(localStorage.getItem(badgeKey(id))); if(!isNaN(s)) stored = s; }catch(e){}
+    const known = (badgeAcct === id) ? Math.max(stored, badgeLvl) : stored;
+    let lvl = known;
+    if(bal != null && !isNaN(bal)) lvl = Math.max(known, badgeFromBalance(bal));
+    const prev = (badgeAcct === id) ? badgeLvl : null;
+    if(lvl > stored){ try{ localStorage.setItem(badgeKey(id), String(lvl)); }catch(e){} }
+    badgeAcct = id; badgeLvl = lvl;
+    btn.classList.add('show');
+    if(lvl > known){
+        setTimeout(()=>badgeNotify(lvl), 600);       // après le défilement du solde
+    } else if(prev !== lvl){
+        setBadgeIcon(lvl);
+    }
+    if(badgesOpen && prev !== lvl){ badgeSel = Math.max(0,lvl); renderBadgesPage(); }
+}
+function badgeNotify(i){
+    const b = BADGES[i], t = document.getElementById('badge-toast'), btn = document.getElementById('badge-btn');
+    setBadgeIcon(i);
+    t.style.setProperty('--bc', 'rgb(' + b.cc + ')');
+    t.querySelector('img').src = BADGE_DIR + b.file;
+    t.querySelector('.bt-n').textContent = b.name;
+    t.classList.remove('go'); btn.classList.remove('pop'); void t.offsetWidth;
+    t.classList.add('go'); btn.classList.add('pop');
+    clearTimeout(badgeNotifyT);
+    badgeNotifyT = setTimeout(()=>{ t.classList.remove('go'); btn.classList.remove('pop'); }, 2500);
+}
+function openBadges(){
+    if(badgesOpen){ closeBadges(); return; }
+    if(!badgeAcct) return;
+    badgesOpen = true; badgeSel = Math.max(0, badgeLvl);
+    closeMenus();
+    document.body.classList.add('badges-open');
+    document.getElementById('badges-page').classList.add('open');
+    renderBadgesPage();
+}
+function closeBadges(){
+    badgesOpen = false;
+    document.body.classList.remove('badges-open');
+    const p = document.getElementById('badges-page'); if(p) p.classList.remove('open');
+}
+function renderBadgesPage(){
+    const P = document.getElementById('badges-page'); if(!P) return;
+    const D = BADGE_DIR, cur = Math.max(0, badgeLvl);
+    const sb = BADGES[badgeSel], selUnl = badgeSel <= badgeLvl;
+    P.style.setProperty('--bt', selUnl ? sb.cc : '140,140,150');
+
+    const card = (b,i)=>
+        '<div class="bp-card'+(i<=badgeLvl?'':' locked')+(i===badgeSel?' sel':'')+'" data-i="'+i+'" style="--cc:'+b.cc+'">'
+        + '<span class="bp-icw"><img src="'+D+b.file+'" style="width:'+(b.k*100)+'%" alt=""></span>'
+        + '<div class="bp-nm">'+b.name+'</div><div class="bp-rc">REACH</div>'
+        + '<div class="bp-am">'+(b.range||b.req)+'</div><div class="bp-sl">'+b.slogan+'</div></div>';
+
+    const T = BADGES[6];
+    const titan =
+        '<div class="bp-card bp-titan'+(6<=badgeLvl?'':' locked')+(badgeSel===6?' sel':'')+'" data-i="6" style="--cc:'+T.cc+'">'
+        + '<span class="bp-icw"><img src="'+D+T.file+'" style="width:'+(T.k*100)+'%" alt=""></span>'
+        + '<div><div class="tt-top"><span class="bp-rc">REACH</span><span class="bp-am">'+T.req+'</span></div><div class="tt-sl">'+T.slogan+'</div></div>'
+        + '<div class="tt-nm">'+T.name+'</div></div>';
+
+    let sp = '';
+    if(selUnl){
+        for(let n=0;n<26;n++){
+            const x = 8+Math.random()*84, y = 10+Math.random()*80, s = 3+Math.random()*5,
+                  dl = (Math.random()*2.6).toFixed(2), du = (2+Math.random()*1.8).toFixed(2);
+            sp += '<i class="spk" style="left:'+x+'%;top:'+y+'%;width:'+s+'px;height:'+s+'px;animation-delay:-'+dl+'s;animation-duration:'+du+'s"></i>';
+        }
+    }
+    const big =
+        '<div class="bp-big'+(selUnl?'':' locked')+'" style="--cc:'+sb.cc+'">'
+        + '<div class="bg-name">'+sb.name+'</div><div class="bg-sub">'+(selUnl?'BADGE UNLOCK':'BADGE LOCKED')+'</div>'
+        + '<div class="bg-img"><img src="'+D+sb.file+'" style="width:'+(sb.k*100)+'%" alt="">'+sp+'</div>'
+        + '<div class="bg-sl">'+sb.slogan+'</div><div class="bg-rq">REQUIRED<br>'+sb.req+'</div></div>';
+
+    P.innerHTML =
+        '<img id="bp-wm" src="'+D+BADGES[cur].file+'" alt="">'
+        + '<div id="bp-in">'
+        + '<div class="bp-head"><div class="bp-id">'+(badgeAcct||'')+'</div><div class="bp-title">Balance Badges Levels</div></div>'
+        + '<div class="bp-note">'+BADGE_NOTE+'</div>'
+        + '<div class="bp-grid">'+BADGES.slice(0,6).map(card).join('')+'</div>'
+        + '<div class="bp-logo"><img src="'+D+'U-LOGO.png" alt=""></div>'
+        + titan + big + '</div>';
+    P.onclick = e=>{
+        const c = e.target.closest('[data-i]');
+        if(c){ badgeSel = parseInt(c.dataset.i); renderBadgesPage(); }
+    };
 }
 bootUnitie().catch(function(e){ console.warn(e); });
 </script>
