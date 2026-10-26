@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,500;1,600;1,700;1,800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&display=swap" rel="stylesheet">
     <style>
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -434,8 +434,8 @@
 .bp-abs { position:absolute; white-space:nowrap; margin:0; }
 #bp-id    { left:calc(var(--u)*35); top:calc(var(--u)*76); font-size:calc(var(--u)*26); line-height:1; font-weight:400; color:#8a86a8; }
 #bp-title { left:calc(var(--u)*35); top:calc(var(--u)*124); font-size:calc(var(--u)*52); line-height:1; font-weight:700; color:#8b88b0; }
-#bp-warn  { left:calc(var(--u)*40); top:calc(var(--u)*211); width:calc(var(--u)*310); white-space:normal;
-    font-size:calc(var(--u)*19); line-height:.98; font-style:italic; font-weight:500; color:#8f8ba8; }
+#bp-warn  { left:calc(var(--u)*40); top:calc(var(--u)*209); white-space:nowrap;
+    font-size:calc(var(--u)*19); line-height:1.17; font-style:italic; font-weight:300; color:#8f8ba8; }
 #bp-wm    { left:calc(var(--u)*-300); top:calc(var(--u)*400); width:calc(var(--u)*860); height:calc(var(--u)*960);
     object-fit:contain; opacity:.12; filter:grayscale(1); pointer-events:none; }
 #bp-u     { left:calc(var(--u)*55); top:calc(var(--u)*631); width:calc(var(--u)*82); height:calc(var(--u)*88);
@@ -692,7 +692,7 @@
             <img id="bp-wm" class="bp-abs" alt="">
             <div id="bp-id" class="bp-abs"></div>
             <div id="bp-title" class="bp-abs">Balance Badges Levels</div>
-            <div id="bp-warn" class="bp-abs">To unlock each level, you must make the required deposit; once the necessary amount is reached, the level will be unlocked. Alternatively, you can reach the required amount through trading. Please note that badges are awarded exclusively within our app and apply only to Step Index trades—they are not global.</div>
+           <div id="bp-warn" class="bp-abs">To unlock each level, you<br>must make the required deposit;<br>once the necessary<br>amount is reached, the<br>level will be<br>unlocked. Alternatively,<br>you can reach the<br>required amount<br>through trading.<br>Please note that<br>badges are<br>awarded exclusively<br>within our app and<br>apply only<br>to Step Index trades—<br>they are not global.</div>
             <div id="bp-tiles"></div>
             <img id="bp-u" class="bp-abs" src="U-LOADING.png" alt="">
             <div id="bp-name" class="bp-abs"></div>
