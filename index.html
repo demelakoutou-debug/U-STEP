@@ -4404,6 +4404,25 @@ const BADGES = [
     {name:'TITAN',    min:1000000, amt:'1,000,000$', req:'1,000,000$', tip:'The Seven-Figure Club',           rgb:'140,115,70', tint:'#6b4e2a', wide:true, bx:294, by:633}
 ];
 let bpLevel = -1, bpSel = 0, _bpToastT = null;
+const bpSounds = {};
+let bpAudioUnlocked = false;
+function bpSoundFile(i){ return (i+1)+'-'+BADGES[i].name+'-SOUND.mp3'; }
+function bpPlaySound(i){
+    try{
+        if(!bpSounds[i]){ bpSounds[i]=new Audio(bpSoundFile(i)); bpSounds[i].preload='auto'; }
+        Object.keys(bpSounds).forEach(k=>{ try{ bpSounds[k].pause(); bpSounds[k].currentTime=0; }catch(e){} });
+        bpSounds[i].volume=0.8;
+        const p=bpSounds[i].play();
+        if(p && p.catch) p.catch(()=>{});
+    }catch(e){}
+}
+/* Les navigateurs exigent un clic avant de jouer un son : on prépare les fichiers dès le premier clic */
+document.addEventListener('pointerdown',function bpWarm(){
+    if(bpAudioUnlocked) return;
+    bpAudioUnlocked=true;
+    BADGES.forEach((b,i)=>{ if(!bpSounds[i]){ bpSounds[i]=new Audio(bpSoundFile(i)); bpSounds[i].preload='auto'; } });
+    document.removeEventListener('pointerdown',bpWarm);
+},{once:true});
 function bpImg(i,kind){
     const n=(i+1)+'-'+BADGES[i].name;
     return n+(kind==='solde' ? '-BADGES-SOLDE' : kind==='unlock' ? '-UNLOCK-BADGES' : '')+'.png';
@@ -4484,6 +4503,7 @@ function applyBadgeIcon(){
 function announceBadge(lv){
     const b=BADGES[lv], btn=document.getElementById('badge-btn'), t=document.getElementById('badge-toast');
     btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
+        bpPlaySound(lv);
     t.style.setProperty('--bc','rgb('+b.rgb+')');
     t.innerHTML='<img src="'+bpImg(lv,'solde')+'" alt=""><span><b>'+b.name+'</b> badge unlocked</span>';
     t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
