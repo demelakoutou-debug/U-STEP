@@ -455,6 +455,7 @@
 #bp-reqv  { left:calc(var(--u)*1370); width:calc(var(--u)*520); top:calc(var(--u)*737); text-align:center;
     font-size:calc(var(--u)*46); line-height:1; font-style:italic; font-weight:700; color:#7d7c89; }
 
+#bp-fx { left:calc(var(--u)*1357); top:calc(var(--u)*190); width:calc(var(--u)*520); height:calc(var(--u)*440); pointer-events:none; }
 .bp-tile { position:absolute; width:calc(var(--u)*224); height:calc(var(--u)*92); cursor:pointer; transition:filter .3s, transform .15s; }
 .bp-tile.bp-wide { width:calc(var(--u)*995); height:calc(var(--u)*133); }
 .bp-tile.locked { filter:grayscale(1) brightness(.78); }
@@ -698,6 +699,7 @@
             <div id="bp-name" class="bp-abs"></div>
             <div id="bp-sub" class="bp-abs">BADGE UNLOCK</div>
             <img id="bp-big" class="bp-abs" alt="">
+            <canvas id="bp-fx" class="bp-abs"></canvas>
             <div id="bp-tip" class="bp-abs"></div>
             <div id="bp-req" class="bp-abs">REQUIRED</div>
             <div id="bp-reqv" class="bp-abs"></div>
@@ -4451,6 +4453,7 @@ function renderBadgePanel(){
     const wm=$('bp-wm');
     if(bpLevel>=0){ wm.src=bpImg(bpLevel,'unlock'); wm.style.display=''; } else wm.style.display='none';
     $('bp-id').textContent=activeAccountId||'';
+        bpFxSync();
 }
 function refreshBadgeTop(){
     const cur=derivAccounts.find(a=>a.account_id===activeAccountId);
@@ -4468,7 +4471,8 @@ function openBadgePage(){
     renderBadgeAll();
 }
 function closeBadgePage(){
-    const p=document.getElementById('badge-page'); if(p) p.classList.remove('open');
+        const p=document.getElementById('badge-page'); if(p) p.classList.remove('open');
+    bpFxSync();
 }
 function applyBadgeIcon(){
     const btn=document.getElementById('badge-btn'), img=document.getElementById('badge-ico');
@@ -4515,6 +4519,88 @@ document.getElementById('bp-tiles').addEventListener('click',e=>{
     renderBadgeTiles(); renderBadgePanel();
 });
 window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeBadgePage(); });
+
+/* ════════════════════════════════════════════
+   PARTICULES DU GRAND BADGE — légères, uniquement sur un badge débloqué
+════════════════════════════════════════════ */
+const BP_FX = ['205,205,215','90,255,40','80,175,255','255,205,60','235,70,255','255,205,60','215,150,255'];
+const BP_FX_COUNT = 20;
+const _fx = {raf:0, last:0, ps:[], rgb:'', cv:null, ctx:null, sprite:null, on:false};
+function bpFxSprite(rgb){
+    const s=document.createElement('canvas'); s.width=s.height=48;
+    const c=s.getContext('2d'), g=c.createRadialGradient(24,24,0,24,24,24);
+    g.addColorStop(0,'rgba(255,255,255,1)');
+    g.addColorStop(.18,'rgba('+rgb+',.95)');
+    g.addColorStop(.5,'rgba('+rgb+',.28)');
+    g.addColorStop(1,'rgba('+rgb+',0)');
+    c.fillStyle=g; c.fillRect(0,0,48,48);
+    return s;
+}
+function bpFxSpawn(p,w,h,randomAge){
+    const sc=w/520, cx=w/2, cy=h/2, rx=w*.37, ry=h*.41;
+    const a=Math.random()*Math.PI*2, r=.3+Math.random()*.95;
+    p.x=cx+Math.cos(a)*rx*r; p.y=cy+Math.sin(a)*ry*r;
+    const sp=(6+Math.random()*10)*sc;
+    p.vx=Math.cos(a)*sp*.6; p.vy=Math.sin(a)*sp*.4-(8+Math.random()*12)*sc;
+    p.size=(5+Math.random()*7)*sc;
+    p.life=2.4+Math.random()*2.2;
+    p.age=randomAge ? Math.random()*p.life : 0;
+    p.ph=Math.random()*6.28; p.sp=.6+Math.random()*1.2;
+}
+function bpFxFrame(now){
+    _fx.raf=0;
+    if(!_fx.on) return;
+    _fx.raf=requestAnimationFrame(bpFxFrame);
+    if(now-_fx.last<33) return;                       // 30 images/s maximum
+    const dt=Math.min(.1,(now-_fx.last)/1000)||.033; _fx.last=now;
+    const cv=_fx.cv, w=cv.clientWidth, h=cv.clientHeight;
+    if(!w || !h) return;
+    const dpr=Math.min(window.devicePixelRatio||1,1.5);
+    const pw=Math.round(w*dpr), ph=Math.round(h*dpr);
+    if(cv.width!==pw || cv.height!==ph){ cv.width=pw; cv.height=ph; }
+    const c=_fx.ctx;
+    c.setTransform(dpr,0,0,dpr,0,0);
+    c.clearRect(0,0,w,h);
+    c.globalCompositeOperation='lighter';
+    if(!_fx.ps.length){
+        for(let i=0;i<BP_FX_COUNT;i++){ const p={}; bpFxSpawn(p,w,h,true); _fx.ps.push(p); }
+    }
+    for(const p of _fx.ps){
+        p.age+=dt;
+        if(p.age>=p.life) bpFxSpawn(p,w,h,false);
+        p.x+=p.vx*dt; p.y+=p.vy*dt;
+        const t=p.age/p.life;
+        const a=Math.pow(Math.sin(Math.PI*t),1.4)*(.55+.45*Math.sin(p.ph+now*.004*p.sp))*.9;
+        if(a<=.02) continue;
+        const d=p.size*2.6;
+        c.globalAlpha=a;
+        c.drawImage(_fx.sprite,p.x-d/2,p.y-d/2,d,d);
+        if(p.size>8){                                   // petite croix brillante sur les plus grosses
+            c.globalAlpha=a*.7; c.strokeStyle='#fff'; c.lineWidth=1;
+            c.beginPath();
+            c.moveTo(p.x-p.size*.9,p.y); c.lineTo(p.x+p.size*.9,p.y);
+            c.moveTo(p.x,p.y-p.size*.9); c.lineTo(p.x,p.y+p.size*.9);
+            c.stroke();
+        }
+    }
+    c.globalAlpha=1;
+}
+/* Allume les particules seulement si la page est ouverte ET le badge sélectionné est débloqué */
+function bpFxSync(){
+    const cv=document.getElementById('bp-fx'); if(!cv) return;
+    const on = bpOpen() && bpSel<=bpLevel;
+    if(!on){
+        _fx.on=false;
+        if(_fx.raf){ cancelAnimationFrame(_fx.raf); _fx.raf=0; }
+        const c0=cv.getContext('2d'); c0.setTransform(1,0,0,1,0,0); c0.clearRect(0,0,cv.width,cv.height);
+        return;
+    }
+    const rgb=BP_FX[bpSel];
+    if(_fx.rgb!==rgb){ _fx.rgb=rgb; _fx.sprite=bpFxSprite(rgb); }
+    _fx.cv=cv; _fx.ctx=cv.getContext('2d');
+    if(!_fx.on){ _fx.on=true; _fx.last=0; _fx.ps=[]; }
+    if(!_fx.raf) _fx.raf=requestAnimationFrame(bpFxFrame);
+}
 bootUnitie().catch(function(e){ console.warn(e); });
 </script>
 </body>
