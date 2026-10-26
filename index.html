@@ -188,6 +188,16 @@
                 justify-content:center; gap:9px; font-weight:800; font-style:italic; color:#fff; font-size:14px;
                 margin-bottom:clamp(18px,2.7vh,26px); transition:filter .15s, transform .1s; flex-shrink:0; }
         .tbtn .ico { font-size:17px; font-style:normal; }
+                /* ── Logos des boutons RISE / FALL / CALLE / PUTE ── */
+        .tbtn .tlogo { height:74%; max-width:88%; width:auto; object-fit:contain; display:block;
+                       pointer-events:none; user-select:none; -webkit-user-drag:none;
+                       filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));
+                       transition:transform .18s ease, filter .18s ease; }
+        .tbtn:hover .tlogo { transform:scale(1.14);
+                       filter:drop-shadow(0 0 6px rgba(255,255,255,.8)) drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
+        .tbtn:active .tlogo { transform:scale(.93); }
+        .tbtn.rise:hover { box-shadow:0 0 14px rgba(18,214,58,.5); }
+        .tbtn.fall:hover { box-shadow:0 0 14px rgba(234,44,36,.5); }
         .tbtn.rise { background:linear-gradient(#12d63a,#0bb92c); }
         .tbtn.fall { background:linear-gradient(#ea2c24,#cb1b15); }
         .tbtn.dbl  { background:linear-gradient(#e2ba00,#c9a300); gap:4px; }
@@ -606,8 +616,8 @@
             <div class="roi-pct" id="roi-pct">—</div>
             <div class="roi-usd" id="roi-usd">&nbsp;</div>
         </div>
-        <button class="tbtn rise" id="btn-up" onclick="placeTrade('up')"><span id="lbl-up">RISE</span><span class="ico">▲</span></button>
-        <button class="tbtn fall" id="btn-dn" onclick="placeTrade('dn')"><span id="lbl-dn">FALL</span><span class="ico">▼</span></button>
+        <button class="tbtn rise" id="btn-up" onclick="placeTrade('up')" aria-label="Rise"><img class="tlogo" id="img-up" src="4-RISE-BOUTON.png" alt="RISE"></button>
+        <button class="tbtn fall" id="btn-dn" onclick="placeTrade('dn')" aria-label="Fall"><img class="tlogo" id="img-dn" src="3-FALL-BOUTON.png" alt="FALL"></button>
         <button class="tbtn dbl" id="btn-double" onclick="placeDoubleTrade()" title="Double trade"><span class="ico">▲</span><span class="ico">▼</span></button>
         <div class="side-fill"></div>
         <div class="ps-badge std" id="ps-badge"><span class="pdot"></span><span class="ps-txt">STANDARD</span></div>
@@ -4080,8 +4090,11 @@ function updateDoubleLabel(){
 }
 function onAllowEqualChange(){
     allowEqual=document.getElementById('allow-equal-chk').checked;
-    document.getElementById('lbl-up').innerText=allowEqual?'CALLE':'RISE';
-    document.getElementById('lbl-dn').innerText=allowEqual?'PUTE':'FALL';
+        const imgUp=document.getElementById('img-up'), imgDn=document.getElementById('img-dn');
+    imgUp.src = allowEqual ? '2-CALLE-BOUTON.png' : '4-RISE-BOUTON.png';
+    imgUp.alt = allowEqual ? 'CALLE' : 'RISE';
+    imgDn.src = allowEqual ? '1-PUTE-BOUTON.png'  : '3-FALL-BOUTON.png';
+    imgDn.alt = allowEqual ? 'PUTE'  : 'FALL';
     syncSettingsFromInputs();
     requestROI();
 }
