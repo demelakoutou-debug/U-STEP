@@ -4443,13 +4443,21 @@ function bpImg(i,kind){
 function bpU(n){ return 'calc(var(--u)*'+n+')'; }
 function bpOpen(){ const p=document.getElementById('badge-page'); return !!(p && p.classList.contains('open')); }
 
+/* Dégradés des bannières (mesurés sur EXEMPLE-IMAGE-2) : couleur du logo à gauche → violet à droite */
+const BADGE_GRAD = [
+    'linear-gradient(90deg,#706a80 0%,#9a6f99 50%,#a3449c 100%)',                 /* TICK     : gris → magenta */
+    'linear-gradient(90deg,#345a45 0%,#6e6c6f 50%,#824785 100%)',                 /* NOVICE   : vert → violet */
+    'linear-gradient(90deg,#36607a 0%,#686087 50%,#7d4783 100%)',                 /* OPERATOR : bleu → violet */
+    'linear-gradient(90deg,#7a6838 0%,#725a68 50%,#714278 100%)',                 /* EXPERT   : or → violet */
+    'linear-gradient(90deg,#4b3b68 0%,#514166 50%,#564267 100%)',                 /* ADMIN    : violet foncé */
+    'linear-gradient(90deg,#6f6a45 0%,#7e646d 50%,#7e4381 100%)',                 /* LEGENDE  : or → violet */
+    'linear-gradient(90deg,#6d2d8d 0%,#6d2d8d 28%,#7d694e 72%,#7d694e 100%)'      /* TITAN    : violet → or/bronze */
+];
 function renderBadgeTiles(){
     const el=document.getElementById('bp-tiles'); if(!el) return;
     el.innerHTML = BADGES.map((b,i)=>{
         const locked = i>bpLevel;
-        const g = b.wide
-            ? 'linear-gradient(90deg,rgba(112,52,150,.92) 0%,rgba('+b.rgb+',.92) 100%)'
-            : 'linear-gradient(180deg,rgba(125,95,165,.62) 0%,rgba('+b.rgb+',.82) 100%)';
+               const g = BADGE_GRAD[i];
         const cls = 'bp-tile'+(b.wide?' bp-wide':'')+(locked?' locked':'')+(i===bpSel?' sel':'');
         const pos = 'left:'+bpU(b.bx)+';top:'+bpU(b.by)+';--g:'+g+';';
         if(b.wide){
