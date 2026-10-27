@@ -4518,8 +4518,24 @@ function applyBadgeIcon(){
     const btn=document.getElementById('badge-btn'), img=document.getElementById('badge-ico');
     if(bpLevel<0){ btn.style.display='none'; return; }
     btn.style.display='flex';
-    const src=bpImg(bpLevel,'solde');
+    const src=bpImg(bpIconOverride>=0 ? bpIconOverride : bpLevel,'solde');
     if(img.getAttribute('src')!==src) img.src=src;
+
+/* Annonce les badges un par un (animation + son + notification), du plus bas au plus haut */
+let bpAnnQueue = [], bpAnnBusy = false, bpIconOverride = -1;
+const BP_ANN_DELAY = [3800, 3800, 3800, 3800, 4300, 6100, 7100];   // durée de chaque son + 0,4 s
+function bpQueueAnnounce(from, to){
+    for(let i=Math.max(0,from); i<=to; i++){ if(!bpAnnQueue.includes(i)) bpAnnQueue.push(i); }
+    if(!bpAnnBusy) bpAnnNext();
+}
+function bpAnnNext(){
+    if(!bpAnnQueue.length){ bpAnnBusy=false; bpIconOverride=-1; applyBadgeIcon(); return; }
+    bpAnnBusy=true;
+    const lv=bpAnnQueue.shift();
+    bpIconOverride=lv; applyBadgeIcon();           // l'icône à côté du solde montre le badge en cours d'annonce
+    announceBadge(lv);
+    setTimeout(bpAnnNext, BP_ANN_DELAY[lv]||4000);
+}
 }
 function announceBadge(lv){
     const b=BADGES[lv], btn=document.getElementById('badge-btn'), t=document.getElementById('badge-toast');
@@ -4548,7 +4564,7 @@ function updateBadges(acct, bal){
         try{ localStorage.setItem(key,String(lv)); }catch(e){}
         bpLevel=lv;
         applyBadgeIcon();
-        announceBadge(lv);
+        bpQueueAnnounce(stored+1, lv);
     } else {
         applyBadgeIcon();
     }
