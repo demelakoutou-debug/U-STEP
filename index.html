@@ -1111,6 +1111,11 @@ const RIGHT_PAD = 30, VIEW_WINDOW = 180;
    bloqué (voir updateChartData). Largement suffisant pour la
    stabilisation de ces indicateurs. */
 const INDICATOR_WINDOW = 1500;
+/* Historique chargé par marché : 2h45 = 9900 s (≈ 9900 ticks, 1 tick/s sur Step Index).
+   Deriv limite une requête à 5000 ticks : on charge donc par pages (voir maybeBackfill). */
+const HISTORY_SPAN_SEC = 9900;
+const HISTORY_PAGE     = 5000;
+const MAX_TICKS_KEEP   = 10000;
 /* Fraction de la hauteur du graphique réservée en bas pour les
    oscillateurs (AO, futur RSI, etc.). La ligne barrière pointillée est
    dessinée à cette frontière, et l'axe yAO est recalculé pour que les
@@ -3063,10 +3068,27 @@ const histReqSym = {};                // req_id -> symbole (réponses d'historiq
 let histReqSeq = 1000;
 
 function openTabSymbols(){ return [...new Set(tabs.map(t=>marketByKey(t.key).symbol))]; }
-function requestHistory(sym){
+const histReqOlder = {};   // req_id -> true quand le lot demandé est plus ancien que l'historique déjà chargé
+const histBusyAt   = {};   // symbole -> heure de la dernière page ancienne demandée (évite les doublons)
+const histTries    = {};   // symbole -> nombre de pages anciennes demandées (garde-fou)
+function requestHistory(sym, endEpoch, count){
     if(!wsChart || wsChart.readyState!==WebSocket.OPEN) return;
     const id=++histReqSeq; histReqSym[id]=sym;
-    wsChart.send(JSON.stringify({ticks_history:sym,adjust_start_time:1,count:5000,end:'latest',start:1,req_id:id}));
+    if(endEpoch) histReqOlder[id]=true;
+    wsChart.send(JSON.stringify({ticks_history:sym,adjust_start_time:1,count:count||HISTORY_PAGE,end:endEpoch||'latest',start:1,req_id:id}));
+}
+/* Si l'historique couvre moins de 2h45, on demande la page juste avant le premier tick connu */
+function maybeBackfill(sym){
+    const md=marketData[sym];
+    if(!md || !md.epochs.length || !wsChart || wsChart.readyState!==WebSocket.OPEN) return;
+    if(Date.now()-(histBusyAt[sym]||0) < 8000) return;           // une page est déjà en route
+    const first=md.epochs[0], last=md.epochs[md.epochs.length-1];
+    const missing=HISTORY_SPAN_SEC-(last-first);
+    if(missing<=5) return;                                        // 2h45 atteintes
+    if((histTries[sym]||0)>=6) return;                            // garde-fou
+    histTries[sym]=(histTries[sym]||0)+1;
+    histBusyAt[sym]=Date.now();
+    requestHistory(sym, first-1, Math.min(HISTORY_PAGE, Math.max(100, Math.ceil(missing)+5)));
 }
 function subscribePublicTicks(sym){
     if(!wsChart || wsChart.readyState!==WebSocket.OPEN || subscribedPublic.has(sym)) return;
@@ -3103,6 +3125,7 @@ function connectChartWS(){
         try{ wsChart.close(); }catch(e){}
     }
     subscribedPublic.clear();
+    Object.keys(histTries).forEach(k=>delete histTries[k]);
     _lastTickReceivedAt = Date.now(); // évite un reconnect immédiat par le watchdog
     wsChart=new WebSocket(CHART_WS_URL);
     wsChart.onopen=()=>{
@@ -3143,7 +3166,9 @@ function connectChartWS(){
             const sym = histReqSym[d.req_id] || (d.echo_req && d.echo_req.ticks_history) || currentSymbol;
             delete histReqSym[d.req_id];
             _lastTickReceivedAt = Date.now();
-            ingestHistory(sym, d.history);
+            const older=!!histReqOlder[d.req_id]; delete histReqOlder[d.req_id];
+            if(older) delete histBusyAt[sym];
+            ingestHistory(sym, d.history, older);
             setLoading('data', false);
         } else if(d.msg_type==='proposal' && d.req_id===ROI_REQ_ID){
             handleROIProposal(d);
@@ -3209,25 +3234,48 @@ setInterval(()=>{ if(_serverEpoch>0) _renderServerTime(); }, 500);
 /* ════════════════════════════════════════════
    DATA
 ════════════════════════════════════════════ */
-function ingestHistory(sym,h){
+function ingestHistory(sym,h,older){
     if(!openTabSymbols().includes(sym)) return;     // marché fermé entre-temps
+    if(!h || !h.times || !h.times.length) return;   // lot vide (plus d'historique plus ancien)
     const md=getMD(sym);
-    md.times=h.times.map(formatTime);
-    md.epochs=[...h.times];
-    md.prices=[...h.prices];
-    md.highs=[...h.prices];
-    md.lows=[...h.prices];
-    md.lastEpoch=h.times.length ? h.times[h.times.length-1] : 0;
-    md.sessionHigh=h.prices.length ? Math.max(...h.prices) : null;
-    md.sessionLow =h.prices.length ? Math.min(...h.prices) : null;
+    const bt=h.times, bp=h.prices, b0=bt[0], bL=bt[bt.length-1];
+    const nOld=md.epochs.length;
+    /* Fusion : ticks déjà là avant le lot + lot + ticks déjà reçus après le lot (zéro doublon, série continue) */
+    let i0=0, j=0;
+    if(nOld){
+        while(i0<nOld && md.epochs[i0]<b0) i0++;
+        j=i0; while(j<nOld && md.epochs[j]<=bL) j++;
+        if(!older && md.epochs[nOld-1] < b0-3){ i0=0; j=nOld; }   // trou (veille, coupure) : on repart du lot récent, les pages anciennes comblent ensuite
+    }
+    const times=md.times.slice(0,i0).concat(bt.map(formatTime), md.times.slice(j));
+    const epochs=md.epochs.slice(0,i0).concat(bt, md.epochs.slice(j));
+    const prices=md.prices.slice(0,i0).concat(bp, md.prices.slice(j));
+    const over=prices.length-MAX_TICKS_KEEP;
+    if(over>0){ times.splice(0,over); epochs.splice(0,over); prices.splice(0,over); }
+    md.times=times; md.epochs=epochs; md.prices=prices;
+    md.highs=prices.slice(); md.lows=prices.slice();
+    md.lastEpoch=epochs[epochs.length-1];
+    let hi=-Infinity, lo=Infinity;
+    for(let k=0;k<prices.length;k++){ const v=prices[k]; if(v>hi) hi=v; if(v<lo) lo=v; }
+    md.sessionHigh=hi; md.sessionLow=lo;
     Object.keys(candleCache).forEach(k=>{ if(k.indexOf(sym+'|')===0) delete candleCache[k]; });
-    if(sym!==currentSymbol) return;
+    if(sym!==currentSymbol){ maybeBackfill(sym); return; }
     ticksData=md;
-    chart.scales.y.options.min=undefined;
-    chart.scales.y.options.max=undefined;
+    /* Page ancienne reçue pendant que tu regardes le passé : on garde ta vue au même endroit */
+    const xs0=chart && chart.scales.x;
+    const keepView=!!(older && chart && !autoScrollEnabled && xs0 && isFinite(xs0.min) && isFinite(xs0.max));
+    const vMin=keepView ? xs0.min : 0, vMax=keepView ? xs0.max : 0;
+    const added=md.epochs.length-nOld;
+    if(!older){ chart.scales.y.options.min=undefined; chart.scales.y.options.max=undefined; }
     updateStatDisplay();
     rebuildAllInstances();
-    updateChartData(true);
+    updateChartData(!keepView);
+    if(keepView && added>0){
+        suppressAutoScrollOff++;
+        chart.zoomScale('x',{min:vMin+added,max:vMax+added},'default');
+        setTimeout(()=>{ suppressAutoScrollOff=Math.max(0,suppressAutoScrollOff-1); },120);
+    }
+    maybeBackfill(sym);
 }
 /* Un tick d'un marché ouvert : toujours ajouté à son tampon ; seul le marché de l'onglet actif
    déclenche le travail lourd (indicateurs, rendu). */
