@@ -3054,9 +3054,6 @@ let _tickWatchdog = null;
 let publicPollTimer = null;
 const PUBLIC_POLL_MS = 3000;
 const TICKS_REQ_ID = 700;
-const HISTORY_TARGET = 9900;          // 2h45 de marché = 9 900 ticks (1 tick/seconde)
-const histOlder = {};                 // req_id -> true (réponse = ticks plus anciens)
-const olderBusy = {};                 // symbole -> chargement des anciens ticks en cours
 const LIVE_FRESH_MS = 6000;    // un tick live de moins de 6 s = pas besoin de recharger l'historique
 let showLevels = true;
 
@@ -3070,47 +3067,6 @@ function requestHistory(sym){
     if(!wsChart || wsChart.readyState!==WebSocket.OPEN) return;
     const id=++histReqSeq; histReqSym[id]=sym;
     wsChart.send(JSON.stringify({ticks_history:sym,adjust_start_time:1,count:5000,end:'latest',start:1,req_id:id}));
-}
-function requestOlderHistory(sym){
-    if(!wsChart || wsChart.readyState!==WebSocket.OPEN || olderBusy[sym]) return;
-    const md = marketData[sym];
-    if(!md || !md.epochs.length || md.prices.length >= HISTORY_TARGET) return;
-    const need = Math.min(5000, HISTORY_TARGET - md.prices.length);
-    const id = ++histReqSeq;
-    histReqSym[id] = sym; histOlder[id] = true; olderBusy[sym] = true;
-    setTimeout(()=>{ olderBusy[sym] = false; }, 8000);   // sécurité si la requête échoue
-    wsChart.send(JSON.stringify({ticks_history:sym, adjust_start_time:1, count:need, end:String(md.epochs[0]-1), start:1, req_id:id}));
-}
-function ingestOlderHistory(sym, h){
-    olderBusy[sym] = false;
-    const md = marketData[sym];
-    if(!md || !h || !h.times || !h.times.length || !openTabSymbols().includes(sym)) return;
-    const first = md.epochs.length ? md.epochs[0] : Infinity;
-    const ep = [], pr = [];
-    for(let i=0;i<h.times.length;i++){ if(h.times[i] < first){ ep.push(h.times[i]); pr.push(h.prices[i]); } }
-    const added = ep.length;
-    if(!added) return;
-    md.epochs = ep.concat(md.epochs);
-    md.prices = pr.concat(md.prices);
-    md.highs  = pr.concat(md.highs);
-    md.lows   = pr.concat(md.lows);
-    md.times  = ep.map(formatTime).concat(md.times);
-    md.sessionHigh = Math.max(...md.prices);
-    md.sessionLow  = Math.min(...md.prices);
-    Object.keys(candleCache).forEach(k=>{ if(k.indexOf(sym+'|')===0) delete candleCache[k]; });
-    if(sym === currentSymbol){
-        const xs = chart.scales.x, mn = xs.min, mx = xs.max;
-        _anim.primed = false;
-        rebuildAllInstances();
-        updateChartData(false);
-        if(autoScrollEnabled){ scrollToEnd(true); }
-        else{
-            suppressAutoScrollOff++;
-            chart.zoomScale('x',{min:mn+added,max:mx+added},'none');
-            setTimeout(()=>{ suppressAutoScrollOff=Math.max(0,suppressAutoScrollOff-1); },120);
-        }
-    }
-    if(md.prices.length < HISTORY_TARGET) requestOlderHistory(sym);
 }
 function subscribePublicTicks(sym){
     if(!wsChart || wsChart.readyState!==WebSocket.OPEN || subscribedPublic.has(sym)) return;
@@ -3187,8 +3143,7 @@ function connectChartWS(){
             const sym = histReqSym[d.req_id] || (d.echo_req && d.echo_req.ticks_history) || currentSymbol;
             delete histReqSym[d.req_id];
             _lastTickReceivedAt = Date.now();
-                if(histOlder[d.req_id]){ delete histOlder[d.req_id]; ingestOlderHistory(sym, d.history); }
-            else ingestHistory(sym, d.history);
+            ingestHistory(sym, d.history);
             setLoading('data', false);
         } else if(d.msg_type==='proposal' && d.req_id===ROI_REQ_ID){
             handleROIProposal(d);
@@ -3265,7 +3220,6 @@ function ingestHistory(sym,h){
     md.lastEpoch=h.times.length ? h.times[h.times.length-1] : 0;
     md.sessionHigh=h.prices.length ? Math.max(...h.prices) : null;
     md.sessionLow =h.prices.length ? Math.min(...h.prices) : null;
-    requestOlderHistory(sym);
     Object.keys(candleCache).forEach(k=>{ if(k.indexOf(sym+'|')===0) delete candleCache[k]; });
     if(sym!==currentSymbol) return;
     ticksData=md;
@@ -3289,7 +3243,7 @@ function ingestTick(sym, tick, src){
     const p = parseFloat(tick.quote);
     md.times.push(formatTime(tick.epoch)); md.epochs.push(tick.epoch); md.prices.push(p);
     md.highs.push(p); md.lows.push(p);
-    const capped = md.prices.length > 12000;
+    const capped = md.prices.length > 10000;
     if(capped){ md.times.shift(); md.epochs.shift(); md.prices.shift(); md.highs.shift(); md.lows.shift(); }
     if(md.sessionHigh===null || p>md.sessionHigh) md.sessionHigh=p;
     if(md.sessionLow===null  || p<md.sessionLow)  md.sessionLow=p;
