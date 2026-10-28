@@ -3241,6 +3241,15 @@ function ingestHistory(sym,h,older){
     const md=getMD(sym);
     const bt=h.times, bp=h.prices, b0=bt[0], bL=bt[bt.length-1];
     const nOld=md.epochs.length;
+    /* Vue actuelle mémorisée par heure (epoch), valable en ticks comme en bougies */
+    let anchor=null;
+    if(older && chart && !autoScrollEnabled && sym===currentSymbol){
+        const xs0=chart.scales.x, V0=VD(), n0=V0.epochs.length;
+        if(xs0 && n0 && isFinite(xs0.min) && isFinite(xs0.max)){
+            const i0a=Math.max(0, Math.min(n0-1, Math.round(xs0.min)));
+            anchor={ep:V0.epochs[i0a], off:xs0.min-i0a, w:xs0.max-xs0.min};
+        }
+    }
     /* Fusion : ticks déjà là avant le lot + lot + ticks déjà reçus après le lot (zéro doublon, série continue) */
     let i0=0, j=0;
     if(nOld){
@@ -3262,19 +3271,17 @@ function ingestHistory(sym,h,older){
     Object.keys(candleCache).forEach(k=>{ if(k.indexOf(sym+'|')===0) delete candleCache[k]; });
     if(sym!==currentSymbol){ maybeBackfill(sym); return; }
     ticksData=md;
-    /* Page ancienne reçue pendant que tu regardes le passé : on garde ta vue au même endroit */
-    const xs0=chart && chart.scales.x;
-    const keepView=!!(older && chart && !autoScrollEnabled && xs0 && isFinite(xs0.min) && isFinite(xs0.max));
-    const vMin=keepView ? xs0.min : 0, vMax=keepView ? xs0.max : 0;
-    const added=md.epochs.length-nOld;
+        /* Page ancienne reçue pendant que tu regardes le passé : on garde ta vue sur les mêmes ticks / bougies */
     if(!older){ chart.scales.y.options.min=undefined; chart.scales.y.options.max=undefined; }
     updateStatDisplay();
     rebuildAllInstances();
-    updateChartData(!keepView);
-    if(keepView && added>0){
+    updateChartData(!anchor);
+    if(anchor){
+        const V1=VD(); let k=idxForEpochIn(V1, anchor.ep); if(k<0) k=0;
         suppressAutoScrollOff++;
-        chart.zoomScale('x',{min:vMin+added,max:vMax+added},'default');
+        chart.zoomScale('x',{min:k+anchor.off, max:k+anchor.off+anchor.w},'default');
         setTimeout(()=>{ suppressAutoScrollOff=Math.max(0,suppressAutoScrollOff-1); },120);
+        setTimeout(()=>{ updatePriceLines(); drawPeakLabels(); updateOscBarrier(); },130);
     }
     maybeBackfill(sym);
 }
