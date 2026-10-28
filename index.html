@@ -1963,7 +1963,7 @@ function setTokStatus(msg,color){
 }
 /* cls === 'connected' : on affiche le solde ; sinon le bouton "Connexion Deriv" prend sa place */
 function setBtnConnect(cls,txt){
-    setLoading('auth', cls==='connecting');
+    setLoading('auth', cls==='connecting' && !(ticksData && ticksData.prices.length));
     const b=document.getElementById('btn-connect');
     const connected = cls==='connected';
     b.className='acct-connect'+(cls && !connected ? ' '+cls : '');
@@ -4236,7 +4236,8 @@ function showFeedback(msg,cls){
    UTILS
 ════════════════════════════════════════════ */
 function formatTime(epoch){
-    return new Date(epoch*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const d=new Date(epoch*1000), p=n=>(n<10?'0':'')+n;
+    return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
 }
 
 /* ════════════════════════════════════════════
@@ -4323,6 +4324,70 @@ document.getElementById('stake-input').addEventListener('change', updateDoubleLa
     }
 });
 
+/* ════════════════════════════════════════════
+   CACHE LOCAL DES TICKS (IndexedDB)
+   ─────────────────────────────────────────
+   Les ticks de chaque marché ouvert sont sauvegardés toutes les 8 s (et à la fermeture de la page).
+   Au refresh, le graphique s'affiche immédiatement avec ces données ; Deriv ne comble que le manque.
+════════════════════════════════════════════ */
+const TICKS_DB='unitie_ticks_db', TICKS_STORE='ticks';
+let _tdb=null;
+const _tcSaved={};   // symbole -> dernier epoch déjà sauvegardé
+function tdbOpen(){
+    return new Promise(res=>{
+        try{
+            const rq=indexedDB.open(TICKS_DB,1);
+            rq.onupgradeneeded=()=>{ rq.result.createObjectStore(TICKS_STORE); };
+            rq.onsuccess=()=>{ _tdb=rq.result; res(_tdb); };
+            rq.onerror=()=>res(null);
+            rq.onblocked=()=>res(null);
+        }catch(e){ res(null); }
+    });
+}
+async function loadTicksCache(symbols){
+    const db=_tdb||await tdbOpen();
+    if(!db) return;
+    await Promise.all(symbols.map(sym=>new Promise(res=>{
+        try{
+            const rq=db.transaction(TICKS_STORE,'readonly').objectStore(TICKS_STORE).get(sym);
+            rq.onsuccess=()=>{
+                const r=rq.result;
+                if(r && r.epochs && r.prices && r.epochs.length && r.epochs.length===r.prices.length){
+                    const md=getMD(sym);
+                    if(!md.prices.length){
+                        md.epochs=Array.from(r.epochs);
+                        md.prices=Array.from(r.prices);
+                        md.times=md.epochs.map(formatTime);
+                        md.highs=md.prices.slice(); md.lows=md.prices.slice();
+                        md.lastEpoch=md.epochs[md.epochs.length-1];
+                        let hi=-Infinity, lo=Infinity;
+                        for(let k=0;k<md.prices.length;k++){ const v=md.prices[k]; if(v>hi) hi=v; if(v<lo) lo=v; }
+                        md.sessionHigh=hi; md.sessionLow=lo;
+                        _tcSaved[sym]=md.lastEpoch;
+                    }
+                }
+                res();
+            };
+            rq.onerror=()=>res();
+        }catch(e){ res(); }
+    })));
+}
+function saveTicksCache(){
+    if(!_tdb) return;
+    try{
+        const st=_tdb.transaction(TICKS_STORE,'readwrite').objectStore(TICKS_STORE);
+        Object.keys(marketData).forEach(sym=>{
+            const md=marketData[sym];
+            if(!md.prices.length || _tcSaved[sym]===md.lastEpoch) return;
+            _tcSaved[sym]=md.lastEpoch;
+            st.put({epochs:Float64Array.from(md.epochs), prices:Float64Array.from(md.prices)}, sym);
+        });
+    }catch(e){}
+}
+setInterval(saveTicksCache, 8000);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveTicksCache(); });
+window.addEventListener('pagehide', saveTicksCache);
+
 async function bootUnitie(){
     loadSettings();
     loadWorkspace();
@@ -4341,6 +4406,7 @@ async function bootUnitie(){
     applyAutoScrollUI();
     initAcctMenu(); initChartCtrl();
     fetchActiveStepSymbolsAndInit();
+    await loadTicksCache(openTabSymbols());   // ticks sauvegardés : le graphique s'affiche tout de suite
     activateTab(activeTab().id);
 
     /* ── Restaurer stats ── */
