@@ -2451,7 +2451,8 @@ function updateChartData(forceEnd=false){
     lastFractalPeaks = firstFractal ? extractPeaks(V.prices,{up:firstFractal.up,down:firstFractal.down},firstFractal.period) : {up:[],down:[]};
     layoutAOBands(aoList);
 
-    if(!(forceEnd && scrollToEnd())) chart.update('none');
+    if(!(forceEnd && scrollToEnd(viewPending))) chart.update('none');
+    if(forceEnd && viewPending) viewPending=false;
     updatePriceLines();
     if(hasInd('fractal')) drawPeakLabels(); else clearPeakLabels();
     updateOscBarrier();
@@ -3760,7 +3761,7 @@ function initTabsUI(){
 function activateTab(id){
     const t=tabs.find(x=>x.id===id); if(!t) return;
     const prev=activeTab(); if(prev && prev!==t) prev.trendlines=trendlines;
-    activeTabId=id;
+        activeTabId=id; viewPending=true;
     viewWin=null;
     if(prev && prev!==t){ prev.mode=chartMode; prev.tf=candleTF; }
     t.mode=t.mode||'ticks'; t.tf=t.tf||5;
@@ -4031,6 +4032,9 @@ function resetZoom(){
     setTimeout(()=>{ suppressAutoScrollOff=Math.max(0,suppressAutoScrollOff-1); },120);
 }
 let suppressAutoScrollOff = 0;
+/* true = la prochaine mise à jour doit placer la vue sur les derniers ticks, même si AUTO est désactivé
+   (chargement de la page, changement d'onglet). Évite le graphique "écrasé" / bougies invisibles. */
+let viewPending = true;
 /* Largeur de vue choisie par l'utilisateur (zoom molette). null = largeur par défaut. */
 let viewWin = null;
 function onChartZoomDone(ctx){
