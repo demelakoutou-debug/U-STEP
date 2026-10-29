@@ -4706,9 +4706,9 @@ window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeBadgePage(); })
 /* ════════════════════════════════════════════
    PARTICULES DU GRAND BADGE — légères, uniquement sur un badge débloqué
 ════════════════════════════════════════════ */
-const BP_FX_COUNT = 56;            // nombre de particules (20 avant)
-const _fx = {raf:0, last:0, ps:[], rgb:null, want:null, master:0, cv:null, ctx:null, sprite:null, on:false};
-const _sm = x => x*x*(3-2*x);      // courbe douce (smoothstep) pour tous les fondus
+const BP_FX = ['205,205,215','90,255,40','80,175,255','255,205,60','235,70,255','255,205,60','215,150,255'];
+const BP_FX_COUNT = 20;
+const _fx = {raf:0, last:0, ps:[], rgb:'', cv:null, ctx:null, sprite:null, on:false};
 function bpFxSprite(rgb){
     const s=document.createElement('canvas'); s.width=s.height=48;
     const c=s.getContext('2d'), g=c.createRadialGradient(24,24,0,24,24,24);
@@ -4719,95 +4719,69 @@ function bpFxSprite(rgb){
     c.fillStyle=g; c.fillRect(0,0,48,48);
     return s;
 }
-/* Une particule naît sur un anneau autour du badge : plus dense sur les côtés et en bas, rare en haut */
 function bpFxSpawn(p,w,h,randomAge){
-    const sc=w/520, cx=w/2, cy=h/2, rx=w*.34, ry=h*.38;
-    let a=0;
-    for(let k=0;k<5;k++){
-        a=Math.random()*Math.PI*2;
-        const wgt=.25+.55*Math.abs(Math.cos(a))+.35*Math.max(0,Math.sin(a));
-        if(Math.random()<wgt) break;
-    }
-    const r=.82+Math.random()*.45;
+    const sc=w/520, cx=w/2, cy=h/2, rx=w*.37, ry=h*.41;
+    const a=Math.random()*Math.PI*2, r=.3+Math.random()*.95;
     p.x=cx+Math.cos(a)*rx*r; p.y=cy+Math.sin(a)*ry*r;
-    p.vx=Math.cos(a)*(2+Math.random()*5)*sc;           // dérive légèrement vers l'extérieur
-    p.vy=-(5+Math.random()*12)*sc;                     // et monte doucement
-    p.star=Math.random()<.22;                          // 1 sur 5 : petite étoile à 4 branches
-    p.size=(p.star ? 3.2+Math.random()*2.4 : 1.1+Math.random()*2)*sc;
-    p.life=2.6+Math.random()*2.6;
+    const sp=(6+Math.random()*10)*sc;
+    p.vx=Math.cos(a)*sp*.6; p.vy=Math.sin(a)*sp*.4-(8+Math.random()*12)*sc;
+    p.size=(5+Math.random()*7)*sc;
+    p.life=2.4+Math.random()*2.2;
     p.age=randomAge ? Math.random()*p.life : 0;
-    p.ph=Math.random()*6.28; p.sp=.6+Math.random()*1.4;
+    p.ph=Math.random()*6.28; p.sp=.6+Math.random()*1.2;
 }
 function bpFxFrame(now){
     _fx.raf=0;
     if(!_fx.on) return;
-    if(now-_fx.last<33){ _fx.raf=requestAnimationFrame(bpFxFrame); return; }   // 30 images/s maximum
+    _fx.raf=requestAnimationFrame(bpFxFrame);
+    if(now-_fx.last<33) return;                       // 30 images/s maximum
     const dt=Math.min(.1,(now-_fx.last)/1000)||.033; _fx.last=now;
     const cv=_fx.cv, w=cv.clientWidth, h=cv.clientHeight;
-    if(!w || !h){ _fx.on=false; return; }              // page fermée
+    if(!w || !h) return;
     const dpr=Math.min(window.devicePixelRatio||1,1.5);
     const pw=Math.round(w*dpr), ph=Math.round(h*dpr);
     if(cv.width!==pw || cv.height!==ph){ cv.width=pw; cv.height=ph; }
     const c=_fx.ctx;
-
-    /* Fondu global : on s'efface en douceur avant de changer de badge / de couleur, puis on réapparaît */
-    const target=(_fx.want && _fx.want===_fx.rgb) ? 1 : 0;
-    _fx.master+=(target-_fx.master)*Math.min(1,dt*4);
-    if(target===0 && _fx.master<.015){
-        _fx.master=0;
-        if(!_fx.want){
-            c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,cv.width,cv.height);
-            _fx.on=false; return;
-        }
-        _fx.rgb=_fx.want; _fx.sprite=bpFxSprite(_fx.rgb); _fx.ps=[];
-    }
-
     c.setTransform(dpr,0,0,dpr,0,0);
     c.clearRect(0,0,w,h);
     c.globalCompositeOperation='lighter';
     if(!_fx.ps.length){
         for(let i=0;i<BP_FX_COUNT;i++){ const p={}; bpFxSpawn(p,w,h,true); _fx.ps.push(p); }
     }
-    const sc=w/520, edgeM=36*sc;
     for(const p of _fx.ps){
         p.age+=dt;
         if(p.age>=p.life) bpFxSpawn(p,w,h,false);
-        p.x+=(p.vx+Math.sin(p.ph+now*.0009*p.sp)*4*sc)*dt;
-        p.y+=p.vy*dt;
+        p.x+=p.vx*dt; p.y+=p.vy*dt;
         const t=p.age/p.life;
-        let a=_sm(Math.min(1,t/.22))*_sm(Math.min(1,(1-t)/.5));              // apparition puis fondu long
-        a*=.7+.3*Math.sin(p.ph+now*.004*p.sp);                                // scintillement léger
-        a*=_sm(Math.max(0,Math.min(1,Math.min(p.x,w-p.x,p.y,h-p.y)/edgeM)));  // fondu avant les bords du cadre
-        a*=_fx.master;
-        if(a<=.01) continue;
-        const d=p.size*(p.star ? 2.6 : 3.4);
+        const a=Math.pow(Math.sin(Math.PI*t),1.4)*(.55+.45*Math.sin(p.ph+now*.004*p.sp))*.9;
+        if(a<=.02) continue;
+        const d=p.size*2.6;
         c.globalAlpha=a;
         c.drawImage(_fx.sprite,p.x-d/2,p.y-d/2,d,d);
-        if(p.star){                                    // étoile à 4 branches (comme sur la référence)
-            const L=p.size*1.7;
-            c.globalAlpha=a*.9; c.fillStyle='rgb(255,255,255)';
+        if(p.size>8){                                   // petite croix brillante sur les plus grosses
+            c.globalAlpha=a*.7; c.strokeStyle='#fff'; c.lineWidth=1;
             c.beginPath();
-            c.moveTo(p.x,p.y-L);
-            c.quadraticCurveTo(p.x,p.y,p.x+L,p.y);
-            c.quadraticCurveTo(p.x,p.y,p.x,p.y+L);
-            c.quadraticCurveTo(p.x,p.y,p.x-L,p.y);
-            c.quadraticCurveTo(p.x,p.y,p.x,p.y-L);
-            c.fill();
+            c.moveTo(p.x-p.size*.9,p.y); c.lineTo(p.x+p.size*.9,p.y);
+            c.moveTo(p.x,p.y-p.size*.9); c.lineTo(p.x,p.y+p.size*.9);
+            c.stroke();
         }
     }
     c.globalAlpha=1;
-    _fx.raf=requestAnimationFrame(bpFxFrame);
 }
-/* Particules : seulement si la page est ouverte ET le badge sélectionné est débloqué.
-   Les changements (autre badge, fermeture) passent par le fondu global ci-dessus. */
+/* Allume les particules seulement si la page est ouverte ET le badge sélectionné est débloqué */
 function bpFxSync(){
     const cv=document.getElementById('bp-fx'); if(!cv) return;
-    _fx.want = (bpOpen() && bpSel<=bpLevel) ? BP_FX[bpSel] : null;
-    _fx.cv=cv; _fx.ctx=cv.getContext('2d');
-    if(!_fx.on){
-        if(!_fx.want) return;
-        _fx.on=true; _fx.last=0; _fx.master=0; _fx.rgb=null; _fx.ps=[];
+    const on = bpOpen() && bpSel<=bpLevel;
+    if(!on){
+        _fx.on=false;
+        if(_fx.raf){ cancelAnimationFrame(_fx.raf); _fx.raf=0; }
+        const c0=cv.getContext('2d'); c0.setTransform(1,0,0,1,0,0); c0.clearRect(0,0,cv.width,cv.height);
+        return;
     }
+    const rgb=BP_FX[bpSel];
+    if(_fx.rgb!==rgb){ _fx.rgb=rgb; _fx.sprite=bpFxSprite(rgb); }
+    _fx.cv=cv; _fx.ctx=cv.getContext('2d');
+    if(!_fx.on){ _fx.on=true; _fx.last=0; _fx.ps=[]; }
     if(!_fx.raf) _fx.raf=requestAnimationFrame(bpFxFrame);
 }
 bootUnitie().catch(function(e){ console.warn(e); });
