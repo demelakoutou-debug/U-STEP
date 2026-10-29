@@ -3102,7 +3102,8 @@ function releaseSymbol(sym){
     if(tickSubIds[sym] && wsChart && wsChart.readyState===WebSocket.OPEN){
         wsChart.send(JSON.stringify({forget:tickSubIds[sym]}));
     }
-    delete tickSubIds[sym]; subscribedPublic.delete(sym); delete marketData[sym];
+    delete tickSubIds[sym]; subscribedPublic.delete(sym); delete marketData[sym]; delete _tcSaved[sym];
+    try{ if(_tdb) _tdb.transaction(TICKS_STORE,'readwrite').objectStore(TICKS_STORE).delete(sym); }catch(e){}
     Object.keys(candleCache).forEach(k=>{ if(k.indexOf(sym+'|')===0) delete candleCache[k]; });
 }
 
