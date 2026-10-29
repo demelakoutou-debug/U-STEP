@@ -70,7 +70,7 @@
         #main { flex:1; display:flex; min-height:0; min-width:0; overflow:hidden; }
         #chart-wrap { flex:1; display:flex; position:relative; overflow:hidden; min-width:0; min-height:0; }
         #chart-container { flex:1; position:relative; padding:10px 0 8px 10px; min-width:0; min-height:0; overflow:hidden; }
-        canvas { display:block; width:100% !important; height:100% !important; }
+        #cryptoChart { display:block; width:100% !important; height:100% !important; }
 
         /* HIDE + liste des indicateurs sélectionnés */
         #ind-hide { position:absolute; top:10px; left:20px; z-index:9; padding:2px 7px; font-size:10px; font-weight:600;
@@ -421,12 +421,51 @@
 #badge-toast img { height:30px; width:auto; }
 #badge-toast b { font-weight:800; letter-spacing:.5px; color:#fff; }
 #badge-toast.show { animation:badgeToast 3.6s ease-out forwards; }
-@keyframes badgeToast {
-    0%   { opacity:0; transform:translateY(-8px); }
-    10%  { opacity:1; transform:translateY(0); }
-    85%  { opacity:1; transform:translateY(0); }
-    100% { opacity:0; transform:translateY(6px); }
+
+/* ── Animations uniques : ADMIN / LEGENDE / TITAN ── */
+#badge-btn { position:relative; }
+
+/* ADMIN : le diamant tourne en 3D */
+#badge-btn.pop-admin img { animation:badgeAdmin 2.4s cubic-bezier(.2,.8,.2,1); }
+@keyframes badgeAdmin {
+    0%   { transform:perspective(220px) rotateY(0) scale(.2); opacity:0; filter:drop-shadow(0 0 0 rgba(235,70,255,0)); }
+    25%  { transform:perspective(220px) rotateY(360deg) scale(1.9); opacity:1; filter:drop-shadow(0 0 16px rgba(235,70,255,.95)); }
+    55%  { transform:perspective(220px) rotateY(720deg) scale(1.35); filter:drop-shadow(0 0 22px rgba(235,70,255,.8)) brightness(1.4); }
+    80%  { transform:perspective(220px) rotateY(720deg) scale(1.1); filter:drop-shadow(0 0 10px rgba(235,70,255,.6)); }
+    100% { transform:perspective(220px) rotateY(720deg) scale(1); filter:drop-shadow(0 0 0 rgba(235,70,255,0)); }
 }
+
+/* LEGENDE : la couronne tombe, rebondit et brille */
+#badge-btn.pop-legende img { animation:badgeLegende 4.5s ease-out; }
+@keyframes badgeLegende {
+    0%   { transform:translateY(-120px) scale(2.4) rotate(-20deg); opacity:0; filter:drop-shadow(0 0 0 rgba(255,205,60,0)); }
+    16%  { transform:translateY(8px) scale(1.5) rotate(8deg); opacity:1; filter:drop-shadow(0 0 14px rgba(255,205,60,.9)); }
+    26%  { transform:translateY(-20px) scale(1.7) rotate(-6deg); }
+    36%  { transform:translateY(0) scale(1.45) rotate(4deg); filter:drop-shadow(0 0 20px rgba(255,205,60,1)) brightness(1.5); }
+    46%  { transform:translateY(-8px) scale(1.5) rotate(-2deg); }
+    56%  { transform:translateY(0) scale(1.4) rotate(0); filter:drop-shadow(0 0 22px rgba(255,205,60,.9)) brightness(1.35); }
+    75%  { transform:translateY(0) scale(1.25); filter:drop-shadow(0 0 16px rgba(255,205,60,.7)) brightness(1.2); }
+    100% { transform:translateY(0) scale(1) rotate(0); filter:drop-shadow(0 0 0 rgba(255,205,60,0)); }
+}
+
+/* TITAN : entrée spectaculaire + anneaux d'énergie */
+#badge-btn.pop-titan img { animation:badgeTitan 5s cubic-bezier(.2,.8,.2,1); }
+@keyframes badgeTitan {
+    0%   { transform:scale(0) rotate(-540deg); opacity:0; filter:drop-shadow(0 0 0 rgba(215,150,255,0)); }
+    18%  { transform:scale(2.6) rotate(0); opacity:1; filter:drop-shadow(0 0 20px rgba(215,150,255,1)) brightness(1.6); }
+    30%  { transform:scale(1.9); filter:drop-shadow(0 0 26px rgba(255,205,120,1)) brightness(1.3); }
+    45%  { transform:scale(2.2); filter:drop-shadow(0 0 30px rgba(215,150,255,1)) brightness(1.7); }
+    60%  { transform:scale(1.7); filter:drop-shadow(0 0 22px rgba(255,205,120,.9)) brightness(1.3); }
+    75%  { transform:scale(1.9); filter:drop-shadow(0 0 28px rgba(215,150,255,.9)) brightness(1.5); }
+    100% { transform:scale(1) rotate(0); filter:drop-shadow(0 0 0 rgba(215,150,255,0)) brightness(1); }
+}
+#badge-btn.pop-titan::before, #badge-btn.pop-titan::after {
+    content:''; position:absolute; left:50%; top:50%; width:28px; height:28px; margin:-14px 0 0 -14px;
+    border-radius:50%; border:2px solid rgba(215,150,255,.9); opacity:0; pointer-events:none;
+    animation:badgeRing 1.6s ease-out 3;
+}
+#badge-btn.pop-titan::after { border-color:rgba(255,205,120,.9); animation-delay:.35s; }
+@keyframes badgeRing { 0% { transform:scale(.4); opacity:.95; } 100% { transform:scale(7); opacity:0; } }
 
 #badge-page { position:fixed; inset:0; z-index:150; display:none; background:#2a1244; }
 #badge-page.open { display:block; }
@@ -4663,15 +4702,115 @@ function bpAnnNext(){
     announceBadge(lv);
     setTimeout(bpAnnNext, BP_ANN_DELAY[lv]||4000);
 }
+/* ── Explosion de mini-particules aux couleurs du badge (EXPERT et au-dessus) ── */
+const BP_EXP = {
+    3:{n:70,  sp:[90,340],  life:[1.0,1.9], size:[1.2,3.0], g:120, rings:0, waves:[0]},          // EXPERT
+    4:{n:120, sp:[110,430], life:[1.2,2.3], size:[1.2,3.4], g:80,  rings:1, waves:[0]},          // ADMIN
+    5:{n:170, sp:[120,470], life:[1.4,2.8], size:[1.2,3.6], g:220, rings:2, waves:[0,.28]},      // LEGENDE (retombent en paillettes)
+    6:{n:260, sp:[140,580], life:[1.6,3.2], size:[1.3,4.0], g:50,  rings:3, waves:[0,.3,.65]}    // TITAN
+};
+function bpExplode(lv){
+    const cfg=BP_EXP[lv], btn=document.getElementById('badge-btn');
+    if(!cfg || !btn) return;
+    const r=btn.getBoundingClientRect(); if(!r.width) return;
+    const rgb=BADGES[lv].rgb.split(',').map(Number);
+    const lite=rgb.map(v=>Math.round(v+(255-v)*.55));
+    const mk=col=>{
+        const s=document.createElement('canvas'); s.width=s.height=32;
+        const k=s.getContext('2d'), g=k.createRadialGradient(16,16,0,16,16,16);
+        g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(.2,'rgba('+col+',.95)');
+        g.addColorStop(.55,'rgba('+col+',.25)'); g.addColorStop(1,'rgba('+col+',0)');
+        k.fillStyle=g; k.fillRect(0,0,32,32); return s;
+    };
+    const sprites=[mk(rgb.join(',')), mk(lite.join(',')), mk('255,255,255')];
+    const W=760, H=620, dpr=Math.min(window.devicePixelRatio||1,2);
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const cv=document.createElement('canvas');
+    cv.width=W*dpr; cv.height=H*dpr;
+    cv.style.cssText='position:fixed;left:'+(cx-W/2)+'px;top:'+(cy-H/2)+'px;width:'+W+'px;height:'+H+'px;z-index:9999;pointer-events:none';
+    document.body.appendChild(cv);
+    setTimeout(()=>{ try{cv.remove();}catch(e){} }, 8000);                 // sécurité
+    const c=cv.getContext('2d'), ox=W/2, oy=H/2;
+    const rnd=(a,b)=>a+Math.random()*(b-a), sm=x=>x*x*(3-2*x);
+    const ps=[];
+    cfg.waves.forEach(dl=>{
+        const per=Math.round(cfg.n/cfg.waves.length);
+        for(let i=0;i<per;i++){
+            const a=Math.random()*Math.PI*2, v=rnd(cfg.sp[0],cfg.sp[1])*(dl?.9:1);
+            ps.push({x:ox, y:oy, vx:Math.cos(a)*v, vy:Math.sin(a)*v-rnd(0,40),
+                life:rnd(cfg.life[0],cfg.life[1]), age:-dl, size:rnd(cfg.size[0],cfg.size[1]),
+                spr:sprites[Math.random()<.5 ? 0 : (Math.random()<.6 ? 1 : 2)],
+                star:Math.random()<.18, ph:Math.random()*6.28});
+        }
+    });
+    const rings=[]; for(let k=0;k<cfg.rings;k++) rings.push({t:-k*.18});
+    const t0=performance.now(); let last=t0;
+    function frame(now){
+        const dt=Math.min(.05,(now-last)/1000); last=now;
+        c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
+        c.globalCompositeOperation='lighter';
+        let alive=false;
+        const el=(now-t0)/1000;
+        if(el<.35){                                                     // flash central
+            const f=1-el/.35, g=c.createRadialGradient(ox,oy,0,ox,oy,90*(1+el*2));
+            g.addColorStop(0,'rgba(255,255,255,'+(.55*f)+')');
+            g.addColorStop(.4,'rgba('+rgb.join(',')+','+(.35*f)+')');
+            g.addColorStop(1,'rgba('+rgb.join(',')+',0)');
+            c.globalAlpha=1; c.fillStyle=g; c.fillRect(0,0,W,H); alive=true;
+        }
+        rings.forEach(rg=>{                                             // ondes de choc
+            rg.t+=dt;
+            if(rg.t<0){ alive=true; return; }
+            const k=rg.t/.9; if(k>=1) return;
+            alive=true;
+            c.globalAlpha=(1-k)*.9; c.strokeStyle='rgb('+rgb.join(',')+')'; c.lineWidth=2.2*(1-k)+.5;
+            c.beginPath(); c.arc(ox,oy,10+k*170,0,Math.PI*2); c.stroke();
+        });
+        for(const p of ps){
+            p.age+=dt;
+            if(p.age<0){ alive=true; continue; }
+            if(p.age>=p.life) continue;
+            alive=true;
+            const drag=Math.exp(-1.9*dt);
+            p.vx*=drag; p.vy=p.vy*drag+cfg.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+            const t=p.age/p.life;
+            let a=sm(Math.min(1,t/.05))*sm(Math.min(1,(1-t)/.75));       // apparition vive, fondu long
+            a*=.65+.35*Math.sin(p.ph+now*.012);                           // scintillement
+            if(a<=.01) continue;
+            const d=p.size*3.6;
+            c.globalAlpha=a; c.drawImage(p.spr,p.x-d/2,p.y-d/2,d,d);
+            if(p.star){
+                const L=p.size*2.2;
+                c.globalAlpha=a*.85; c.fillStyle='rgb(255,255,255)';
+                c.beginPath();
+                c.moveTo(p.x,p.y-L);
+                c.quadraticCurveTo(p.x,p.y,p.x+L,p.y);
+                c.quadraticCurveTo(p.x,p.y,p.x,p.y+L);
+                c.quadraticCurveTo(p.x,p.y,p.x-L,p.y);
+                c.quadraticCurveTo(p.x,p.y,p.x,p.y-L);
+                c.fill();
+            }
+        }
+        c.globalAlpha=1;
+        if(alive) requestAnimationFrame(frame); else { try{cv.remove();}catch(e){} }
+    }
+    requestAnimationFrame(frame);
+}
+
+let _bpPopT=null;
 function announceBadge(lv){
     const b=BADGES[lv], btn=document.getElementById('badge-btn'), t=document.getElementById('badge-toast');
-    btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
-        bpPlaySound(lv);
+    const POPS=['pop','pop-admin','pop-legende','pop-titan'];
+    const cls = lv===4 ? 'pop-admin' : lv===5 ? 'pop-legende' : lv===6 ? 'pop-titan' : 'pop';   // animation unique dès ADMIN
+    POPS.forEach(k=>btn.classList.remove(k)); void btn.offsetWidth; btn.classList.add(cls);
+    bpPlaySound(lv);
+    if(lv>=3) bpExplode(lv);                                                                    // explosion dès EXPERT
     t.style.setProperty('--bc','rgb('+b.rgb+')');
     t.innerHTML='<img src="'+bpImg(lv,'solde')+'" alt=""><span><b>'+b.name+'</b> badge unlocked</span>';
     t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
-    clearTimeout(_bpToastT);
-    _bpToastT=setTimeout(()=>{ t.classList.remove('show'); btn.classList.remove('pop'); },3800);
+    clearTimeout(_bpToastT); clearTimeout(_bpPopT);
+    _bpToastT=setTimeout(()=>t.classList.remove('show'),3800);
+    _bpPopT=setTimeout(()=>POPS.forEach(k=>btn.classList.remove(k)), lv===4 ? 2600 : lv===5 ? 4800 : lv===6 ? 5600 : 1900);
 }
 /* Appelée à chaque mise à jour du solde du compte actif */
 function updateBadges(acct, bal){
