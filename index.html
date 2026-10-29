@@ -4813,6 +4813,90 @@ function bpFxSyncRaw(){
     }
     if(!_fx.raf) _fx.raf=requestAnimationFrame(bpFxFrame);
 }
+/* ════════════════════════════════════════════
+   CAPTURE DU BADGE — double-clic sur le grand badge (ou son texte) → image PNG téléchargée
+════════════════════════════════════════════ */
+function _linGrad(c,w,h,deg,stops){                    // équivalent du linear-gradient(<deg>deg, …) CSS
+    const a=deg*Math.PI/180, len=Math.abs(w*Math.sin(a))+Math.abs(h*Math.cos(a));
+    const cx=w/2, cy=h/2, dx=Math.sin(a)*len/2, dy=-Math.cos(a)*len/2;
+    const g=c.createLinearGradient(cx-dx,cy-dy,cx+dx,cy+dy);
+    stops.forEach(s=>g.addColorStop(s[0],s[1]));
+    return g;
+}
+async function bpCapture(){
+    const b=BADGES[bpSel], locked=bpSel>bpLevel;
+    const big=document.getElementById('bp-big'), fx=document.getElementById('bp-fx');
+    /* petit flash de confirmation sur le badge */
+    big.style.transition='filter .12s'; big.style.filter='brightness(1.9)';
+    setTimeout(()=>{ big.style.filter=''; big.style.transition=''; },170);
+    try{
+        await Promise.all(['800 60px Montserrat','italic 600 24px Montserrat','italic 500 28px Montserrat','italic 700 46px Montserrat'].map(f=>document.fonts.load(f)));
+    }catch(e){}
+
+    const S=2, W=556, H=760, OX=1339, OY=90, CX=278;     // S = résolution (2 = HD) ; OX/OY = coin du panneau dans la page
+    const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+    const c=cv.getContext('2d'); c.scale(S,S);
+
+    /* fond : même dégradé que la page des badges */
+    const tint = locked ? '#4a4a52' : b.tint;
+    c.fillStyle=_linGrad(c,W,H,105,[[0,'#3b1259'],[.42,'#311c52'],[1,tint]]); c.fillRect(0,0,W,H);
+    const ov=c.createLinearGradient(0,0,0,H); ov.addColorStop(0,'rgba(60,50,80,.35)'); ov.addColorStop(.55,'rgba(20,5,40,0)');
+    c.fillStyle=ov; c.fillRect(0,0,W,H);
+    if(!locked){                                          // halo de la couleur du badge
+        const g=c.createRadialGradient(CX,321,20,CX,321,250);
+        g.addColorStop(0,'rgba('+b.rgb+',.28)'); g.addColorStop(1,'rgba('+b.rgb+',0)');
+        c.fillStyle=g; c.fillRect(0,0,W,H);
+    }
+
+    /* grand badge (grisé s'il est verrouillé) */
+    if(big.naturalWidth){
+        const k=Math.min(375/big.naturalWidth,358/big.naturalHeight), w=big.naturalWidth*k, h=big.naturalHeight*k;
+        c.save();
+        if(locked && 'filter' in c) c.filter='grayscale(1) brightness(.85)';
+        c.drawImage(big, CX-w/2, 321-h/2, w, h);
+        c.restore();
+    }
+    /* particules : image du canvas à cet instant */
+    if(!locked && fx && fx.width){
+        c.save(); c.globalCompositeOperation='lighter';
+        c.drawImage(fx, 1357-OX, 190-OY, 520, 440);
+        c.restore();
+    }
+
+    /* textes */
+    c.textAlign='center'; c.textBaseline='top';
+    const gn=c.createLinearGradient(0,108-OY,0,168-OY); gn.addColorStop(0,'#a79bff'); gn.addColorStop(1,'#6f63e0');
+    c.font='800 60px Montserrat, sans-serif';              c.fillStyle=gn;        c.fillText(b.name, CX, 108-OY);
+    c.font='italic 600 24px Montserrat, sans-serif';       c.fillStyle='#8a86a6'; c.fillText('BADGE UNLOCK', CX, 175-OY);
+    c.font='italic 500 28px Montserrat, sans-serif';       c.fillStyle='#85829a'; c.fillText(b.tip, CX, 627-OY);
+    c.font='italic 700 46px Montserrat, sans-serif';       c.fillStyle='#7d7c89';
+    c.fillText('REQUIRED', CX, 683-OY);
+    c.fillText(b.req, CX, 737-OY);
+
+    /* téléchargement */
+    try{
+        cv.toBlob(blob=>{
+            if(!blob) return;
+            const url=URL.createObjectURL(blob), a=document.createElement('a');
+            a.href=url; a.download='UNiTie-'+b.name+'-badge.png';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(()=>URL.revokeObjectURL(url),4000);
+        },'image/png');
+    }catch(e){
+        console.warn('[Capture badge]', e);
+        alert("Capture impossible ici (ouvre l'app depuis ton site GitHub Pages, pas depuis un fichier local).");
+    }
+}
+(function(){
+    const st=document.getElementById('bp-stage'); if(!st) return;
+    st.style.userSelect='none'; st.style.webkitUserSelect='none';    // pas de texte sélectionné par le double-clic
+    st.addEventListener('dblclick',e=>{
+        if(!e.target.closest('#bp-big,#bp-name,#bp-sub,#bp-tip,#bp-req,#bp-reqv')) return;
+        e.preventDefault();
+        bpCapture().catch(err=>console.warn('[Capture badge]',err));
+    });
+})();
+
 bootUnitie().catch(function(e){ console.warn(e); });
 </script>
 </body>
