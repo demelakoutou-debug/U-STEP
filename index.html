@@ -3295,7 +3295,7 @@ function ingestHistory(sym,h,older){
     if(nOld){
         while(i0<nOld && md.epochs[i0]<b0) i0++;
         j=i0; while(j<nOld && md.epochs[j]<=bL) j++;
-        if(!older && md.epochs[nOld-1] < b0-3){ i0=0; j=nOld; }   // trou (veille, coupure) : on repart du lot récent, les pages anciennes comblent ensuite
+         if(!older && i0>0 && md.epochs[i0-1] < b0-5) i0=0;   // trou entre l'ancien et le lot (cache d'hier, veille…) : on jette l'ancien, les pages anciennes comblent ensuite
     }
     const times=md.times.slice(0,i0).concat(bt.map(formatTime), md.times.slice(j));
     const epochs=md.epochs.slice(0,i0).concat(bt, md.epochs.slice(j));
@@ -4392,7 +4392,8 @@ async function loadTicksCache(symbols){
             const rq=db.transaction(TICKS_STORE,'readonly').objectStore(TICKS_STORE).get(sym);
             rq.onsuccess=()=>{
                 const r=rq.result;
-                if(r && r.epochs && r.prices && r.epochs.length && r.epochs.length===r.prices.length){
+                if(r && r.epochs && r.prices && r.epochs.length && r.epochs.length===r.prices.length
+                && (Date.now()/1000 - r.epochs[r.epochs.length-1]) < 4500){   // cache de plus de 75 min : trou assuré, on le jette
                     const md=getMD(sym);
                     if(!md.prices.length){
                         md.epochs=Array.from(r.epochs);
