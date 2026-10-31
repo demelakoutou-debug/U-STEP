@@ -1155,6 +1155,12 @@ const INDICATOR_WINDOW = 1500;
 const HISTORY_SPAN_SEC = 9900;
 const HISTORY_PAGE     = 5000;
 const MAX_TICKS_KEEP   = 10000;
+/* Index du premier tick qui suit le DERNIER trou (> 20 s) de la série : tout ce qui précède est coupé,
+   les pages d'historique de Deriv comblent ensuite le passé sans trou. 0 = aucune coupure. */
+function lastGapIndex(epochs){
+    for(let k=epochs.length-1;k>0;k--){ if(epochs[k]-epochs[k-1] > 20) return k; }
+    return 0;
+}
 /* Fraction de la hauteur du graphique réservée en bas pour les
    oscillateurs (AO, futur RSI, etc.). La ligne barrière pointillée est
    dessinée à cette frontière, et l'axe yAO est recalculé pour que les
@@ -3300,6 +3306,8 @@ function ingestHistory(sym,h,older){
     const times=md.times.slice(0,i0).concat(bt.map(formatTime), md.times.slice(j));
     const epochs=md.epochs.slice(0,i0).concat(bt, md.epochs.slice(j));
     const prices=md.prices.slice(0,i0).concat(bp, md.prices.slice(j));
+    const gapAt=lastGapIndex(epochs);                                        // trou caché au milieu de la série ?
+    if(gapAt>0){ times.splice(0,gapAt); epochs.splice(0,gapAt); prices.splice(0,gapAt); }
     const over=prices.length-MAX_TICKS_KEEP;
     if(over>0){ times.splice(0,over); epochs.splice(0,over); prices.splice(0,over); }
     md.times=times; md.epochs=epochs; md.prices=prices;
@@ -4398,6 +4406,8 @@ async function loadTicksCache(symbols){
                     if(!md.prices.length){
                         md.epochs=Array.from(r.epochs);
                         md.prices=Array.from(r.prices);
+                        const gapAt=lastGapIndex(md.epochs);                 // cache avec un trou : on garde seulement la partie continue la plus récente
+                        if(gapAt>0){ md.epochs=md.epochs.slice(gapAt); md.prices=md.prices.slice(gapAt); }
                         md.times=md.epochs.map(formatTime);
                         md.highs=md.prices.slice(); md.lows=md.prices.slice();
                         md.lastEpoch=md.epochs[md.epochs.length-1];
