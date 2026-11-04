@@ -2390,6 +2390,51 @@ function extendYForOsc(scale){
     if(!(R > 0)) return;
     scale.min = scale.max - R/(1 - OSC_ZONE_FRACTION);
 }
+
+/* ════════════════════════════════════════════
+   BARRIÈRES DE L'AXE Y (étirement manuel)
+   ─────────────────────────────────────────
+   Barrière haute/basse : l'échelle ne peut jamais descendre sous le plus haut / plus bas
+   visibles (+ petite marge) : la courbe ou les bougies ne sortent plus de l'écran.
+   Barrière de compression : on ne peut pas écraser le graphique à l'infini.
+════════════════════════════════════════════ */
+const Y_PAD_FRAC    = 0.04;   // marge au-dessus du plus haut / sous le plus bas (4 %)
+const Y_MAX_STRETCH = 6;      // hauteur maximale de l'échelle = 6 × la hauteur des données visibles
+function clampManualY(scale){
+    const o = scale.options;
+    if(o.min === undefined && o.max === undefined) return;   // échelle automatique : rien à faire
+    if(!chart) return;
+    const V = VD(), n = V.prices.length;
+    if(!n) return;
+    const xs = chart.scales.x;
+    let a = 0, b = n-1;
+    if(xs && isFinite(xs.min) && isFinite(xs.max)){
+        a = Math.max(0, Math.floor(xs.min));
+        b = Math.min(n-1, Math.ceil(xs.max));
+    }
+    if(b < a) return;
+    let lo = Infinity, hi = -Infinity;
+    const H = V.highs, L = V.lows;
+    for(let i=a; i<=b; i++){
+        const h = H[i], l = L[i];
+        if(h > hi) hi = h;
+        if(l < lo) lo = l;
+    }
+    if(!isFinite(lo) || !isFinite(hi)) return;
+    let pad = (hi-lo)*Y_PAD_FRAC; if(!(pad > 0)) pad = 0.05;
+    let fMin = lo-pad, fMax = hi+pad;
+    /* Awesome Oscillator actif : on garde la bande du bas réservée */
+    if(hasInd('ao')) fMin = fMax - (fMax-fMin)/(1-OSC_ZONE_FRACTION);
+    let mn = scale.min, mx = scale.max;
+    if(mn > fMin) mn = fMin;          // barrière basse
+    if(mx < fMax) mx = fMax;          // barrière haute
+    const fr = fMax-fMin, c = (fMin+fMax)/2, half = fr*Y_MAX_STRETCH/2;
+    if(mn < c-half) mn = c-half;      // barrière de compression
+    if(mx > c+half) mx = c+half;
+    scale.min = mn; scale.max = mx;
+    o.min = mn; o.max = mx;
+}
+
 /* Double-clic sur l'axe des prix : retour à l'échelle automatique */
 document.getElementById('y-drag-zone').addEventListener('dblclick',e=>{
     if(!chart) return;
@@ -2425,6 +2470,7 @@ function initChart(){
                 legend:{display:false},tooltip:{enabled:false},
                 zoom:{
                     pan:{enabled:true,mode:'x',threshold:5,onPanComplete:()=>pauseAutoScrollFromGesture()},
+                    c:update('none'),   // recalcule les barrières Y avec la nouvelle fenêtre visible
                     zoom:{wheel:{enabled:true,speed:0.18},pinch:{enabled:true},mode:'x',onZoomComplete:onChartZoomDone}
                 },
                 annotation:{ annotations:{} }
@@ -2722,6 +2768,7 @@ const smoothTipPlugin = {
 };
 /* Échelle Y : s'élargit immédiatement (le prix reste visible), se resserre doucement */
 function smoothYHook(scale){
+    clampManualY(scale);
     extendYForOsc(scale);
     const o=scale.options;
     if(!SMOOTH.on || o.min!==undefined || o.max!==undefined){ _anim.y=null; return; }
