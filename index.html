@@ -279,6 +279,7 @@
         .tab:hover { border-color:#3a4566; }
         .tab.active { border-color:#3d7eff; background:#131a2c; }
         .tab-bar { position:absolute; left:0; top:0; bottom:0; width:0; background:rgba(0,200,100,.38); transition:width .25s linear; pointer-events:none; }
+        .tab-bar.neg { background:rgba(255,77,106,.38); }
         .tab-logo { height:20px; width:auto; position:relative; z-index:1; flex-shrink:0; }
         .tab-txt { position:relative; z-index:1; min-width:0; flex:1; line-height:1.2; }
         .tab-name { font-size:11px; font-weight:600; color:#e6e9f2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -2033,7 +2034,8 @@ const TRADE_MARK_MS = 5000;
 const pendingTradeCtx = {};     // req_id de la cotation -> contexte (onglet, marché, durée)
 
 function makeTradeCtx(dir,durVal){
-    return {tabId:activeTabId, symbol:currentSymbol, durType, durVal, dir};
+    const dv = durVal || parseInt(document.getElementById('dur-value').value,10) || 0;
+    return {tabId:activeTabId, symbol:currentSymbol, durType, durVal:dv, dir};
 }
 function idxForEpochIn(md,ep){
     const a=md.epochs;
@@ -4057,6 +4059,7 @@ function updateTabTradeUI(){
         let fr=0, profit=0;
         ms.forEach(m=>{ const p=markProgress(m); fr=Math.max(fr,p.frac); profit+=p.profit; });
         bar.style.width=(fr*100).toFixed(1)+'%';
+        bar.classList.toggle('neg',profit<0);
         pl.textContent=(profit>=0?'+':'')+profit.toFixed(2)+' USD';
         pl.classList.toggle('neg',profit<0);
     });
