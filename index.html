@@ -560,6 +560,33 @@
         #chart-ctrl { left:230px; gap:8px; }
         .cc-btn { height:34px; font-size:12px; padding:0 10px; }
 }
+
+        /* ═════ PARAMÈTRES : bouton, Symbol BG, fenêtre ═════ */
+        body.no-gaps #ind-gaps { display:none; }
+        body.no-dbl  #btn-double { display:none; }
+        body.no-bg   #sym-bg { display:none; }
+
+        #chart-container { isolation:isolate; }
+        #sym-bg { position:absolute; z-index:-1; left:10px; top:10px; width:calc(100% - 82px); height:calc(100% - 18px);
+                  object-fit:contain; opacity:.15; pointer-events:none; user-select:none; }
+
+        .set-btn { background:transparent; border:0; padding:0; cursor:pointer; display:flex; align-items:center; flex-shrink:0; }
+        .set-btn img { height:18px; width:auto; opacity:.85; transition:transform .3s ease, opacity .15s; }
+        .set-btn:hover img { opacity:1; transform:rotate(60deg); }
+
+        .set-card { width:min(724px,94vw); background:#1a1c30; border:2px solid #2c3050; border-radius:22px;
+                    padding:22px 24px; display:flex; flex-direction:column; align-items:center; box-shadow:0 18px 60px rgba(0,0,0,.55); }
+        .set-head { display:flex; align-items:center; gap:14px; }
+        .set-logo { height:44px; width:auto; }
+        .set-title { font-size:clamp(22px,5vw,32px); font-weight:300; color:#8d95b2; letter-spacing:.5px; }
+        .set-sub { font-size:14px; color:#6f7794; margin:2px 0 16px; }
+        .set-list { width:100%; min-height:min(300px,46vh); border:2px solid #323a58; border-radius:20px; background:#22253a; padding:6px 18px; overflow-y:auto; }
+        .set-row { display:flex; align-items:center; gap:22px; height:68px; border-bottom:1px solid #2f3450; }
+        .set-row:last-child { border-bottom:0; }
+        .set-lbl { font-size:clamp(18px,4.4vw,28px); color:#7a82a0; font-weight:400; user-select:none; }
+        .set-ok { margin-top:16px; min-width:112px; padding:5px 34px; border-radius:24px; font-size:22px; color:#fff;
+                  background:#0f8a1b; border:3px solid #0a5f12; cursor:pointer; }
+        .set-ok:hover { filter:brightness(1.15); }
     </style>
 </head>
 <body>
@@ -587,6 +614,7 @@
 <div id="main">
     <div id="chart-wrap">
         <div id="chart-container">
+            <img id="sym-bg" alt="" onerror="this.style.display='none'">
             <canvas id="cryptoChart"></canvas>
             <div id="chart-labels">
                 <div class="price-hline hline-high" id="hline-high"></div>
@@ -686,6 +714,7 @@
     </div>
     <div class="foot-right">
         <div class="srv">Server Deriv <span class="sep"></span><span id="server-date">--- --- ----</span><span class="sep"></span><span id="server-time">--:--:--</span></div>
+        <button class="set-btn" id="btn-settings" onclick="openSettings()" title="Settings"><img data-logo="settingsBtn" alt="Settings"></button>
         <div class="conn"><span id="status-text" style="color:var(--red)">Reconnexion…</span><div class="dot" id="status-dot"></div></div>
     </div>
 </footer>
@@ -722,6 +751,22 @@
     </div>
 </div>
 
+<!-- ═══ MAIN SETTINGS ═══ -->
+<div id="set-menu" class="menu-overlay" onclick="if(event.target===this)closeSettings()">
+    <div class="set-card">
+        <div class="set-head"><img class="set-logo" data-logo="settingsLogo" alt=""><span class="set-title">MAIN SETTINGS</span></div>
+        <div class="set-sub">Manages interface</div>
+        <div class="set-list">
+            <div class="set-row"><span class="set-lbl">Ecart-Type</span>
+                <label class="toggle-switch"><input type="checkbox" id="set-gaps" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+            <div class="set-row"><span class="set-lbl">Double Trade</span>
+                <label class="toggle-switch"><input type="checkbox" id="set-dbl" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+            <div class="set-row"><span class="set-lbl">Symbol BG</span>
+                <label class="toggle-switch"><input type="checkbox" id="set-bg" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+        </div>
+        <button class="set-ok" onclick="closeSettings()">OK</button>
+    </div>
+</div>
 
 <!-- ═══ LANDING PAGE ═══ -->
 <div id="landing">
@@ -1176,6 +1221,8 @@ const LOGOS = {
     eyeOpen: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACoAAAAVCAYAAAAw73wjAAAACXBIWXMAAAsTAAALEwEAmpwYAAACx0lEQVRIie3WS2heRRjG8V9MSW21qFRshaJUDBijVIW2CuqmSFBkcBA3R1DUYDeuBC8obhTFC3hBvBRE0MVIBRk7BS9YEASp1op4qWAbK9J4iYqVgK022LiYE/k2/b7EBkqgLxyYM5wz85/3fZ/nnL7p6WkLIU441gCzjeOg8x0LBnTRXF8IsTkN52IYq7EKg1iBg/gT/VimJmIMezGB3fgSe0tOU3PZt2+2qg+xWYx1uBZrW4jluAAH8CbewXdY0s5HXNHCf4E+/IJ3sa3ktHteQUNshnATrscUtmFLC3INNuHFktNkiM1JOFRymgqxGcRDuASP4C/c0N6P41WUktPEUYGG2CzFlbhfLfcbeEUt50o8jT24C9PtQa7Gr9hccvooxGYYz2M7nsBiXI7RFngLHsNYyenwkVh6iek2PK6WdhT3lZw+KTntV7O5Ui3hQdyCJ3Ej7sCmEJs1Jadd2IkRnFdy+rHk9DpuVbO9vj3wSDeQXmJ6AF9jtOS0b2YyxKYfZ2MS+zoyf0bHukNqT3+uimgEp8+sUXIaxzMhNuN4AY/i7SOB9MroTpyJkRCbUzvmD+OQWsYlJacD+F0t/0xM4rd2fLLqBP8pPcSmP8RmNTaobvFBN5BeoHdjK+7FyyE2V4XYDJScplVB9akOAC/hNfygVuE5vB9iswyX4Zv2EmKzAhvb59fjQTzcDaSn6kNsluNmVfWLWsC38JUqskHcU3L6rAW4SM3mjpLTPyE2G3E7nsKHqpCuwxrVX58tOW3tCjEb0A7gdapg1qo286nqBBvwcQuyveQ0EWIzgLMQcKfaIln11yH8oXru5s7enxfQFnYpLlWFM6yKY1UL9XML/xNOVMV2sVqFMbVfJ7AD72FPNzs6KtAO4FNa0PNxDi5UszugiqyvHe9XP5m78L3aLt+WnP6e657/C/RYxIL5ezoOOt/xL0tk8IpH4LgiAAAAAElFTkSuQmCC',
     eyeClose: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACoAAAAVCAYAAAAw73wjAAAACXBIWXMAAAsTAAALEwEAmpwYAAABhklEQVRIie3WzYtOURwH8M/zGCkLC1ZksMBOSqHGWxaWbl0rHitFTU38C2pW9tgq4pYanbqUjQWaYiye6GE5ioXyOguxmTGPhR/FZo7c0tT91tmc+zvnfO695750hsOh5ZDu/wbkpoU2nRbadJYNdCSnqCh7A0zUqXrY1MJF2TuO81hRp2r7UvVZUMxjvCh7C3hap+rrPwDXYgwn8A6DnHG50Au4jD24WJS9u3iF+TpVixm4LlZiG07iNF7jbNPQw3iG5zgUbQb9ouy9wFssohP1Pz93I9iMHdiJvfiAm4E+GifwoCnobkxiGltxBhN4g1nMBeDbH3OvxzqMRruCa3iPYziHfTi4FCD3qZ/EvTpVn9CPvgFu4H7gT2FXwA5gHKtwJ4AfAzgb89yKea/mALKuaJ2qml97bcyPW3mpTtX16N+ENQHv4wg24Hadqqmo2YL9eISZOlVzmMpZn79/j3axgIQnAViNjfgcgJd4jC8YjeNizLTft0d2Ou1vXsNpoU2nhTad72sncHRfSZqYAAAAAElFTkSuQmCC',
     unitie: 'UNiTie-Brand-Logo.png',
+    settingsBtn: 'Bouton-main-Settings.png',
+    settingsLogo: 'Main-settings-logo.png',
     s100: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC8AAAAZCAYAAAChBHccAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAE3klEQVRYhe2XaWxUVRTHf2+ZpUx3bGUTkKCNaKykCLIHg4BCMBrABUXkgygSBMWoQcQKJKBADaRoiYCgKFBCXTCiWAkYUJClSwqICqWVUlpacKCdfY4f3ms7TDvTAh9IE//JZG7uO+d//+/ce865TxER2ivUmy3gRvC/+JuFdi1eb+V5b2AOEA8EQ+Y7AD8Dm4GL5lwsMBZ4CrgXiAEumHZrgJIW+FXgHuB5YASQCriB48AWYBMQAPD6/fR//UMKsuY2eYtItN9LIuKUlrFcRJJMuwwR2RPBTkSkQkQmh3EniMjbIuKJ4OMVkTwRsYsIHp+P9NkfXKWvtWPzAGCL8KzIjHo6sBYYFoWnMzDT3BEAB8aOLgSsEXwswGhgXiTS1sTvBZYChwF/yHw9TcfgPYwXaEAVsBr4FigEsoB9GIEYadqMBhaE+PhNm/dN/wbEAFOJ8IKtnfm15n9vmqIGUAycAZ4GBoT5rHjny++X2q0WAoGgml/0ZzBr2qMT+/bqNhjogRGwJ8J8ioDHgCuAj6Zo1weCwdzdxX/JK5/kYdE1BWjsqq2JB1CAuzC2sQEFQDUwCrjVnCsHPn538w/r1uUfpFNiXHePzz+92lk3ctV3v3y2aPIjC7skJyQB99O0A2Ds4o8mXxxmggK5x8orF4zKzDmeGu9w6JqqWTTVEyqsLeLTQgQ2oAhIwojkIWD5ix/lflNcdq5eV7XhcTH26SLysM2iJ6YmxHLg5BnPtv2FWbPGDSsBHgSSQ7guAkfMsQWoPlVZ88yweas2pXVNvS3GahmhKEqZRVfLCYl6W8X3B+xhc6d8gYDLWe+e+PKabRdO/FOdoirKCy6vd5rdar071mZRG1axWXSuBAJDt+wrKO6UHJ83adB948O46oCywtIKhry1sjata2r2HZ1v6RljtSypuVyfmNDBvhcoJVx5G8UPwagOAPuB7EnLNuwpPV/r1jQ1/VKda6mmqhNsuh7vsBuFSYwE3AnsEZFxsXbb8Ipa54Tt+4sODErrWd2tY2Iov6fg9Nnq0Zk5pCTEdnb7/LNLys9PSXTEXBJjPRWj9vvChbVFfDyw3uly5zy+ZP1RfyAY73S5p3p9/mlWXUt32KyhuXAO2ApsxKg0AaACkX5xMbbUE2ernt3+W/HqWWOH7gTGAJt2FZ6c/+SyjRXdU5LmqAqvKYrSFagTo8GdBPJN3mZoJr6krLJxrCiK7g8Gp8zI2eZ1eby3u7y+TFVRn7NZtB72Js1B4CCwAcgFasIo8wQG2iz6TGe9e+SO30tKh/bp9YbL41sxOevzXXd2SXkoOa5DrqYqGaZ9ADgGLAa+jhZVJfw+32/uisaxiBCQYKrHFxhj0/WJuqZmYCSvilGP80zRhwFvlHX6AtkiMjAoUtkxzvGmw2bN/+NsVbbNoo+3WjRMGVUYfSEbuNwS0aFlrzaOox0bBUjUFLWPw6b1BhIwovIrxp1mK1c3lGg4CuQoijJAU5RONc66nCq54o6NsSUAiFBnci4GTreRM6p4TVGUWKAjRqLvwOi4R4ge5Uj4CqNyzdA01aYZ1w4fsBvIxEjOa0Ik8SpGa7ZinL+fACfNq9W14F/gU2AwxnXiOLAI+OJ6CVsSr9BUnv6+XuIIOATMBzKAlUDtjZA1S9j2hHb9JfW/+JuF/wAznCQ6BaL6mgAAAABJRU5ErkJggg==',
     s200: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC8AAAAZCAYAAAChBHccAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAE5klEQVRYhe2XeWwVVRTGf/Pmzdv66EaLtIQURBAFMUWWyBKEGMAoVhOkQRZFcId/cKNGi2AFYioqW6iIWsImCqIgIkqQpUCkqew7FIVSulFaHu3bj3/MNA6PbgQT0oQvucndzj3fnPvdc+cqIkJLheV2E7gV3CF/u9CiyVubGO8GjAIGAynG/DJgB7AUOASEI2xigRGGXXfAAZQAW4CvgOP1+NGAvsA4oD8QD1wDDgArgB/qZSci9RVFRGaISLU0DL+ITBIRzWT3sIjsacTmnIiMjPCVKCLzmvCTIyKWSJ4Nkc8QkdpGFqxDhYgMMmwGiMjBZtjkiUhHE/HFzbDxisjrkTwb0vw6YBngM9q5wGRgLxAyzYsH2hr1d4AHTGNFwCLgDWCnqb+bISuANOBl05gX+AXIBmpN/Vd8waDvvilzmiWbujJcRNJExGW0JxvRNmOAiIwTkTKj7ReRnQs37RqYNCGT6GczyPpuy3AROW+ymSkiccYumLHd8BMnIutFRELh8BcFZ8+37/RKFl0nz1bM/Jo6sJtN9XuA8Ua06/ArcM6IrgP47Mq12sXvLt94YnPBiaSEaPf7wStX0w79XbzsTHH5nE5JCQsAQc9yPYF+prUqgNVGPQCsPXWxbP7gzEVb28VH2zRVdUbZbV4zuabI12EEMA/oEOHsI6AUyH518fevHbtQUmzX1F6FJRVLohy2p22a2jo5Lpr9Z4t8a/L2f5Yx8tHlwFh0SaRE+KgG9p25VE7q1E88HdrEr2ifEHOX02YdEgiGLkQ5bP8YH95s8i4gC12XLlP/YeDFMZ8u37v9yBm6JCce9dT6RlXVeCc5bVpqtMupgu5Ks6p4/YF+PxccO9ijY/Kmxx+6vzNQDsRF+Ko8XlR6cmDGPOLdrs7BUHh8UUVV2xiXcxdwvj5yjZHvCSwEegOq0ZcPfJmenbuysOTyVV8w1MftsL1QVu15RlPV+FZOe51tGNgGbBKRYW6nY2hxZXX6qp0FpT1Skse2T4iNAkYbcz1hkaV/nb0wfe5PfyixUc4PYtyuiYh4gd2Gby/gbw55KzAFXRJOdHn8WOsP5Dw5a2m+iNgrPTXpvmBwkt1q7a057DaTbSn6hZIL7AOCQCFIarTTnniyqCztiawlG4elds3/+LkRTwF52w6ffik9O/dYl6TE8RVXazJj3a67RSd+zihbbybyOcDzwBFg2cmLZSsmzF9dHAgG23m8/rcVRZno0NRODk1TTDYF6Kn1W+BSxHrrgT5Wi2VaMBR68JrP/1YgFBq9bs+BGZmrNs9IaRPfr5XTsaPGFxgQ5bAhImHgFDAbWMP1qfk6KHLj//zMSk/t7ji38/dB7y0Mlld7YkNhGWbX1FGaqvZFz+sqcBnYAHwD7OG/O6E+3It+4IeKSBWQpVosa3yB4CyBMXZNxaBRCSwAPkff8RuQnz21UfJ4/UEe+zCH0ipPjN2qdbdYGAwMQU+XF4G1wEr0i6i5GAl8DbgFvCJSq0CcoiigZ5/16MnhaGOLmMnfIJteb86tq6pOmxYFtDbm/QZMB/6k8Sg3hA3oUZ2mgENRFAe6JPKAmejavik0lG0U9MPqAE4Du9C39FbejD703eoPDAQK0ZNCLvrBvmnUR15BvwF9hoP/85F7CF0ajwDzgeJbWaxezbcUtOiX1B3ytwv/Ao1+Y96I9PcWAAAAAElFTkSuQmCC',
     s300: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC8AAAAZCAYAAAChBHccAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAE+ElEQVRYhe2XW2xUVRSGv31mzpnphV4pSk1aiUIRBFMVkEgIBJQIkggEMSVo+kJFTFAUeECUYClgQASRqpSLEeSqVfAC+FBuFaLFcms1QCsFpArFll5mOtflwzkNw7TTVnwgTfiTk+zstde//1l7rbX3KBGhq0K70wL+D+6Kv1Po0uLt7dhmAIMBGxCpquOB9cAPgN+a6w5MBCYBfQEDuAJ8D2wCKtrgcQDDgGnAEIu3ASgBPgf2trm7iET6SkUkKB3jpRCfUSJyqp21Z0VkbNg+PUVkQzs+zSLyXlsaIwm/T0TqOiH8qogMtXzGWeI6QpGI3GP5pIrI5k74uEXk+XCdkXJeB9YCK4AlQB5QFbamAZgPHAV6AHOB3iH2C5b/fOB4yHw/4BlrnAVMDbE1AV8BKwFvS3IAl5s8Xk/fV5d0Om1CvzwRuRESiVMiMjzEPk9EGi1bo4js+fDbw4/HvDCPics2cqaq+kUR8Vp2l4i8JubplodwBkVkt8XXXUQOiYjXHwjkHjhzLr7PK3lkzMxTnYl8KL4E3gTiQuYKgF+scSww3oragkXb9/e5N/vt8Z/+ePR6ekriquLfKo99sq9Yr29yL7bWtxT2I8BDIZx/A1ussUdE1pVWXh7UKyf3rVkFhR67TXMQ1jja6zYAqcCTmGkUilXAo9aPEuCN6Wt3nD1dVV3r0O2j4qKcq0HGxDj0WJsWy4Gyiivbik9smv700MNApuXTO4yzAThe8VcNmbNXNKR1T/giuVtsutPQR9o07Q+Hrv8ZLq4j8QMBH+ACnNy8Fy4BVTn5O9V3x8tq0lOSDLfHl+P2erOdhtEnPtqJAEEBh65T1+SaUHjsdPnA9NRNT2Sk9wCuYbbRUFSdvHDl/Oh38rWk2OjMgEhWvbvZGRflKAIqAsFgK3Edid8PPGaNpwCjge0Tlm4o9PkD7jqXe2SMw3i5wd08VrfbY2OcDgAEmoE9wAkReS4uyjnoXPW1rK1Hfl0zsFfq5GhDt2OeKECtzx9YfrCsctn7u4vSEmOj5sZHR00WkatAMaAAtxXEW6Ck9asyCdgFlAMHgP05+TvqD5ZVEggESeuRkHK9vmmqx+fPjjKM/pqmbCG+F4GtwGbgjDWXo+Bjrz9AjNMoMuz2rBEDHmxaOGXMAiBjb+nvM6Z9sOWf+1MSZ7m8vjnRDj1ZhAbMy2yDxVfTskHJ8tkRI2+zHEYAyYGgnC05f0lzebxKKTVA09TUqzcapxk2W8+WKGMWYDHm7fkNUBvGuU1giKHbspuavSOv+10LlFIz95SUz319faE9LSVxbEJM1OKgyMNRho4IfuAEkIt58hERHvkxwITaRtdnTy3M/7nZ5w+IkKopNc6w2yYppTIxr38NuGyd0GbgJDe7SFsYBnwM9A+KXATm2TTtVLPXt8qmaaN1m9bSRi4By4F1mKnSChEj7/J4D0c7jH3P5hZQ7/Lg0G1JDkPvp+ABzFbpBQ5htrRdQF17kQnBEeAjYK2mVJpAQSAY9Bl2e4JSIGan2QgsBao7ydkqbVyD56zE4w+ouGinHegGJGMWyy7MGjhNG8XTCewEBgHZCmKUUgAezEfXu9x6C/938cPnrwFAt2kKiMbs7ycxX4SNRH5ddgY1mHUxAugFlAKLgK9vl7CtVqkwc9oFnL9d4gj4CZgDZACrMQNy22irVXYZdOl/UnfF3yn8C7eVYJ8DK09dAAAAAElFTkSuQmCC',
@@ -3832,7 +3879,7 @@ function activateTab(id){
         buildDatasetsForInstances();
         rebuildAllInstances();
     }
-    renderIndicatorList(); renderTabs();
+    renderIndicatorList(); renderTabs(); updateSymbolBG();
     document.title='UNiTie — '+marketByKey(t.key).name;
     setLoading('data', !ticksData.prices.length);
     if(chart){
@@ -4442,11 +4489,71 @@ setInterval(saveTicksCache, 8000);
 document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveTicksCache(); });
 window.addEventListener('pagehide', saveTicksCache);
 
+/* ════════════════════════════════════════════
+   MAIN SETTINGS — Ecart-Type / Double Trade / Symbol BG
+   Les choix sont sauvegardés et retrouvés au rechargement.
+════════════════════════════════════════════ */
+const UI_SETTINGS_KEY = 'unitie_ui_settings_v1';
+let uiSet = {gaps:true, dbl:true, bg:true};
+const SYMBOL_BG = {
+    '100':'1-STEP-INDEX-100-BG.png',
+    '200':'2-STEP-INDEX-200-BG.png',
+    '300':'3-STEP-INDEX-300-BG.png',
+    '400':'4-STEP-INDEX-400-BG.png',
+    '500':'5-STEP-INDEX-500-BG.png'
+};
+function loadUiSettings(){
+    try{
+        const raw = localStorage.getItem(UI_SETTINGS_KEY);
+        if(raw){
+            const s = JSON.parse(raw);
+            uiSet = {gaps:s.gaps!==false, dbl:s.dbl!==false, bg:s.bg!==false};
+        }
+    }catch(e){}
+}
+function saveUiSettings(){
+    try{ localStorage.setItem(UI_SETTINGS_KEY, JSON.stringify(uiSet)); }catch(e){}
+}
+/* Gros logo du marché de l'onglet actif */
+function updateSymbolBG(){
+    const el = document.getElementById('sym-bg'); if(!el) return;
+    const t = activeTab();
+    const f = t ? SYMBOL_BG[t.key] : null;
+    if(!f){ el.style.display = 'none'; return; }
+    el.style.display = '';
+    if(el.getAttribute('src') !== f) el.src = f;
+}
+function applyUiSettings(){
+    document.body.classList.toggle('no-gaps', !uiSet.gaps);
+    document.body.classList.toggle('no-dbl',  !uiSet.dbl);
+    document.body.classList.toggle('no-bg',   !uiSet.bg);
+    updateSymbolBG();
+}
+function openSettings(){
+    closeMenus();
+    document.getElementById('set-gaps').checked = uiSet.gaps;
+    document.getElementById('set-dbl').checked  = uiSet.dbl;
+    document.getElementById('set-bg').checked   = uiSet.bg;
+    document.getElementById('set-menu').classList.add('open');
+}
+function closeSettings(){
+    document.getElementById('set-menu').classList.remove('open');
+}
+function onUiSettingChange(){
+    uiSet.gaps = document.getElementById('set-gaps').checked;
+    uiSet.dbl  = document.getElementById('set-dbl').checked;
+    uiSet.bg   = document.getElementById('set-bg').checked;
+    applyUiSettings();
+    saveUiSettings();
+}
+window.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSettings(); });
+
 async function bootUnitie(){
     loadSettings();
     loadWorkspace();
     initChart();
     document.querySelectorAll('[data-logo]').forEach(el=>{ el.src=LOGOS[el.dataset.logo]; });
+    loadUiSettings(); applyUiSettings();
     applyRestoredInputs();
     tabs.forEach(t=>getMD(marketByKey(t.key).symbol));
     buildMenus(); initTabsUI(); initIndicatorListUI();
