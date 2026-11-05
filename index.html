@@ -587,6 +587,16 @@
         .set-ok { margin-top:16px; min-width:112px; padding:5px 34px; border-radius:24px; font-size:22px; color:#fff;
                   background:#0f8a1b; border:3px solid #0a5f12; cursor:pointer; }
         .set-ok:hover { filter:brightness(1.15); }
+
+                /* ═════ TIE-REVERSE ═════ */
+        .tbtn.tier { background:linear-gradient(#677a9b,#566988); }
+        .tbtn.tier:hover { box-shadow:0 0 14px rgba(103,122,155,.5); }
+        body.no-dbl #set-tie-wrap { display:none; }
+        .set-sel-wrap { position:relative; margin-left:40px; }
+        .set-sel-wrap::before { content:'▾'; position:absolute; left:16px; top:50%; transform:translateY(-50%); color:#6f7794; font-size:12px; pointer-events:none; }
+        .set-sel { appearance:none; -webkit-appearance:none; background:#2d3148; border:0; border-radius:20px; color:#8d95b2;
+                   font-family:'Montserrat',sans-serif; font-size:clamp(15px,3.6vw,19px); height:36px; padding:0 22px 0 38px; cursor:pointer; outline:none; }
+        .set-sel option { background:#22253a; color:#c9cee0; }
     </style>
 </head>
 <body>
@@ -686,7 +696,7 @@
         </div>
         <button class="tbtn rise" id="btn-up" onclick="placeTrade('up')" aria-label="Rise"><img class="tlogo" id="img-up" src="4-RISE-BOUTON.png" alt="RISE"></button>
         <button class="tbtn fall" id="btn-dn" onclick="placeTrade('dn')" aria-label="Fall"><img class="tlogo" id="img-dn" src="3-FALL-BOUTON.png" alt="FALL"></button>
-        <button class="tbtn dbl" id="btn-double" onclick="placeDoubleTrade()" title="Double trade"><span class="ico">▲</span><span class="ico">▼</span></button>
+        <button class="tbtn tier" id="btn-double" onclick="placeTieReverse()" title="TIE-REVERSE"><img class="tlogo" id="img-tier" src="3-TIE-R-BOUTON.png" alt="TIE-R"></button>
         <div class="side-fill"></div>
         <div class="ps-badge std" id="ps-badge"><span class="pdot"></span><span class="ps-txt">STANDARD</span></div>
     </aside>
@@ -759,8 +769,9 @@
         <div class="set-list">
             <div class="set-row"><span class="set-lbl">Ecart-Type</span>
                 <label class="toggle-switch"><input type="checkbox" id="set-gaps" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
-            <div class="set-row"><span class="set-lbl">Double Trade</span>
-                <label class="toggle-switch"><input type="checkbox" id="set-dbl" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+                    <div class="set-row"><span class="set-lbl">TIE-REVERSE</span>
+                <label class="toggle-switch"><input type="checkbox" id="set-dbl" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+                <div class="set-sel-wrap" id="set-tie-wrap"><select id="set-tie-mode" class="set-sel" onchange="onUiSettingChange()"><option value="normal">normal trade</option><option value="reverse">reverse trade</option></select></div></div>
             <div class="set-row"><span class="set-lbl">Symbol BG</span>
                 <label class="toggle-switch"><input type="checkbox" id="set-bg" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
                     <div class="set-row"><span class="set-lbl">Sound FX</span>
@@ -4304,7 +4315,7 @@ function setDurType(type){
 function updateDoubleLabel(){
     const stake=parseFloat(document.getElementById('stake-input').value)||1;
     const b=document.getElementById('btn-double');
-    if(b) b.title='Double trade : RISE + FALL = $'+(stake*2).toFixed(2);
+    if(b) b.title='TIE-REVERSE';
 }
 function onAllowEqualChange(){
     allowEqual=document.getElementById('allow-equal-chk').checked;
@@ -4557,7 +4568,7 @@ window.addEventListener('pagehide', saveTicksCache);
    Les choix sont sauvegardés et retrouvés au rechargement.
 ════════════════════════════════════════════ */
 const UI_SETTINGS_KEY = 'unitie_ui_settings_v1';
-let uiSet = {gaps:true, dbl:true, bg:true, sfx:true};
+let uiSet = {gaps:true, dbl:true, bg:true, sfx:true, tie:'reverse'};
 const SYMBOL_BG = {
     '100':'1-STEP-INDEX-100-BG.png',
     '200':'2-STEP-INDEX-200-BG.png',
@@ -4570,7 +4581,7 @@ function loadUiSettings(){
         const raw = localStorage.getItem(UI_SETTINGS_KEY);
         if(raw){
             const s = JSON.parse(raw);
-            uiSet = {gaps:s.gaps!==false, dbl:s.dbl!==false, bg:s.bg!==false, sfx:s.sfx!==false};
+            uiSet = {gaps:s.gaps!==false, dbl:s.dbl!==false, bg:s.bg!==false, sfx:s.sfx!==false, tie:(s.tie==='normal'?'normal':'reverse')};
         }
     }catch(e){}
 }
@@ -4598,12 +4609,14 @@ function openSettings(){
     document.getElementById('set-dbl').checked  = uiSet.dbl;
     document.getElementById('set-bg').checked   = uiSet.bg;
     document.getElementById('set-sfx').checked = uiSet.sfx;
+    document.getElementById('set-tie-mode').value = uiSet.tie;
     document.getElementById('set-menu').classList.add('open');
 }
 function closeSettings(){
     document.getElementById('set-menu').classList.remove('open');
 }
 function onUiSettingChange(){
+    uiSet.tie = document.getElementById('set-tie-mode').value;
     uiSet.sfx = document.getElementById('set-sfx').checked;
     uiSet.gaps = document.getElementById('set-gaps').checked;
     uiSet.dbl  = document.getElementById('set-dbl').checked;
@@ -4651,6 +4664,32 @@ function onTradeSettledSound(netProfit){
         winStreak = 0;
         playTradeSound('loss');
     }
+}
+/* ════════════════════════════════════════════
+   TIE-REVERSE — trade selon l'ouverture de la bougie en cours
+   'up' = ouverture haute (bougie verte) · 'dn' = ouverture basse (bougie rouge)
+════════════════════════════════════════════ */
+function currentOpenDir(){
+    const V=VD(), n=V.prices.length;
+    if(!n) return null;
+    const i=n-1, cl=V.prices[i];
+    if(chartMode==='candles'){
+        const o=V.opens[i];
+        if(o==null) return null;
+        if(cl>o) return 'up';
+        if(cl<o) return 'dn';
+        return (i>0 ? cl>=V.prices[i-1] : true) ? 'up' : 'dn';   // même règle de couleur que le dessin des bougies
+    }
+    if(n<2) return null;
+    return cl>=V.prices[i-1] ? 'up' : 'dn';                       // mode ticks : sens du dernier tick
+}
+function placeTieReverse(){
+    const open = currentOpenDir();
+    if(!open){ showFeedback('⚠ TIE-R : pas encore de bougie pour décider','err'); return; }
+    const dir = uiSet.tie==='normal' ? open : (open==='up' ? 'dn' : 'up');
+    const b = document.getElementById('btn-double');
+    if(b){ b.classList.add('flash'); setTimeout(()=>b.classList.remove('flash'),500); }
+    placeTrade(dir);
 }
 async function bootUnitie(){
     loadSettings();
