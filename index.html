@@ -1599,7 +1599,7 @@ function updateStatsDisplay(){
     try{localStorage.setItem('deriv_stats',JSON.stringify({total:statsTotal,win:statsWin,loss:statsLoss,pnl:statsPnl}));}catch(e){}
 }
 function resetStats(){
-    statsTotal=0;statsWin=0;statsLoss=0;statsPnl=0;
+    statsTotal=0;statsWin=0;statsLoss=0;statsPnl=0;winStreak=0;
     openContracts={};settledContracts.clear();updateStatsDisplay();
     try{localStorage.removeItem('deriv_stats');}catch(e){}
 }
@@ -1864,6 +1864,7 @@ function _handleTradingMessage(d){
             if(netProfit>0)       statsWin++;
             else if(netProfit<0)  statsLoss++;
             statsPnl=parseFloat((statsPnl+netProfit).toFixed(2));
+            onTradeSettledSound(netProfit);
             delete openContracts[cid];
             updateStatsDisplay();
             closeTradeMark(poc,netProfit);
@@ -4334,6 +4335,7 @@ function placeTrade(dir){
     document.getElementById(btnId).classList.add('flash');
     setTimeout(()=>document.getElementById(btnId).classList.remove('flash'),500);
     showFeedback('⏳ Cotation ['+contractType+'] | $'+stake+' | '+durVal+(durType==='t'?' ticks':' sec')+' | '+tradeSymbol()+'…','pend');
+    playTradeSound('take');
     pendingTradeCtx[1]=makeTradeCtx(dir);
     wsTrading.send(JSON.stringify({
         proposal:       1,
@@ -4364,6 +4366,7 @@ function placeDoubleTrade(){
     const typeUp=isAllowEqual?'CALLE':'CALL';
     const typeDn=isAllowEqual?'PUTE':'PUT';
     const base={amount:stake,basis:'stake',currency:'USD',duration:durVal,duration_unit:durType,underlying_symbol:tradeSymbol()};
+    playTradeSound('take');
     pendingTradeCtx[10]=makeTradeCtx('up'); pendingTradeCtx[11]=makeTradeCtx('dn');
     /* Proposal CALL */
     wsTrading.send(JSON.stringify({proposal:1,...base,contract_type:typeUp,req_id:10}));
@@ -4606,6 +4609,44 @@ function onUiSettingChange(){
 }
 window.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSettings(); });
 
+/* ════════════════════════════════════════════
+   SONS DES TRADES — prise de trade, gain, perte, 5 gains consécutifs
+════════════════════════════════════════════ */
+const TRADE_SOUNDS = {
+    take: 'TAKE-TRADE-SOUND.mp3',
+    win:  'WIN-TRADE-SOUND.mp3',
+    loss: 'LOSS-TRADE-SOUND.mp3',
+    five: 'FIVE-WIN-TRADE-SOUND.mp3'
+};
+const TRADE_SOUND_VOL = { take:0.7, win:0.8, loss:0.8, five:0.9 };   // volume de 0 à 1
+const _tsAudio = {};
+let winStreak = 0;
+function playTradeSound(name){
+    try{
+        let a = _tsAudio[name];
+        if(!a){ a = _tsAudio[name] = new Audio(TRADE_SOUNDS[name]); a.preload = 'auto'; }
+        a.volume = TRADE_SOUND_VOL[name] || 0.8;
+        try{ a.currentTime = 0; }catch(e){}
+        const p = a.play();
+        if(p && p.catch) p.catch(()=>{});
+    }catch(e){}
+}
+/* Le navigateur exige un clic avant de jouer un son : on précharge les 4 fichiers au premier clic */
+document.addEventListener('pointerdown', ()=>{
+    Object.keys(TRADE_SOUNDS).forEach(k=>{
+        if(!_tsAudio[k]){ _tsAudio[k] = new Audio(TRADE_SOUNDS[k]); _tsAudio[k].preload = 'auto'; }
+    });
+}, {once:true});
+/* Appelée à la fin de chaque trade : gain, perte, ou 5 gains d'affilée */
+function onTradeSettledSound(netProfit){
+    if(netProfit > 0){
+        winStreak++;
+        playTradeSound(winStreak % 5 === 0 ? 'five' : 'win');
+    } else if(netProfit < 0){
+        winStreak = 0;
+        playTradeSound('loss');
+    }
+}
 async function bootUnitie(){
     loadSettings();
     loadWorkspace();
