@@ -764,6 +764,8 @@
             <div class="set-row"><span class="set-lbl">Symbol BG</span>
                 <label class="toggle-switch"><input type="checkbox" id="set-bg" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
         </div>
+              <div class="set-row"><span class="set-lbl">Sound FX</span>
+         <label class="toggle-switch"><input type="checkbox" id="set-sfx" onchange="onUiSettingChange()"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
         <button class="set-ok" onclick="closeSettings()">OK</button>
     </div>
 </div>
@@ -4555,7 +4557,7 @@ window.addEventListener('pagehide', saveTicksCache);
    Les choix sont sauvegardés et retrouvés au rechargement.
 ════════════════════════════════════════════ */
 const UI_SETTINGS_KEY = 'unitie_ui_settings_v1';
-let uiSet = {gaps:true, dbl:true, bg:true};
+let uiSet = {gaps:true, dbl:true, bg:true, sfx:true};
 const SYMBOL_BG = {
     '100':'1-STEP-INDEX-100-BG.png',
     '200':'2-STEP-INDEX-200-BG.png',
@@ -4568,7 +4570,7 @@ function loadUiSettings(){
         const raw = localStorage.getItem(UI_SETTINGS_KEY);
         if(raw){
             const s = JSON.parse(raw);
-            uiSet = {gaps:s.gaps!==false, dbl:s.dbl!==false, bg:s.bg!==false};
+            uiSet = {gaps:s.gaps!==false, dbl:s.dbl!==false, bg:s.bg!==false, sfx:s.sfx!==false};
         }
     }catch(e){}
 }
@@ -4595,12 +4597,14 @@ function openSettings(){
     document.getElementById('set-gaps').checked = uiSet.gaps;
     document.getElementById('set-dbl').checked  = uiSet.dbl;
     document.getElementById('set-bg').checked   = uiSet.bg;
+    document.getElementById('set-sfx').checked = uiSet.sfx;
     document.getElementById('set-menu').classList.add('open');
 }
 function closeSettings(){
     document.getElementById('set-menu').classList.remove('open');
 }
 function onUiSettingChange(){
+    uiSet.sfx = document.getElementById('set-sfx').checked;
     uiSet.gaps = document.getElementById('set-gaps').checked;
     uiSet.dbl  = document.getElementById('set-dbl').checked;
     uiSet.bg   = document.getElementById('set-bg').checked;
@@ -4622,6 +4626,7 @@ const TRADE_SOUND_VOL = { take:0.7, win:0.8, loss:0.8, five:0.9 };   // volume d
 const _tsAudio = {};
 let winStreak = 0;
 function playTradeSound(name){
+    if(!uiSet.sfx) return;
     try{
         let a = _tsAudio[name];
         if(!a){ a = _tsAudio[name] = new Audio(TRADE_SOUNDS[name]); a.preload = 'auto'; }
