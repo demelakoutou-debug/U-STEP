@@ -3952,7 +3952,7 @@ function activateTab(id){
         rebuildAllInstances();
     }
     renderIndicatorList(); renderTabs(); updateSymbolBG();
-    document.title='Terminal '+marketByKey(t.key).name+' │ UNiTie';
+    refreshDocTitle();
     setLoading('data', !ticksData.prices.length);
     if(chart){
         if(ticksData.prices.length) updateChartData(true);
@@ -4691,6 +4691,17 @@ function placeTieReverse(){
     if(b){ b.classList.add('flash'); setTimeout(()=>b.classList.remove('flash'),500); }
     placeTrade(dir);
 }
+/* ════════════════════════════════════════════
+   TITRE DE L'ONGLET DU NAVIGATEUR
+   Accueil (landing) > Badges > Terminal du marché actif
+════════════════════════════════════════════ */
+function refreshDocTitle(){
+    const ld = document.getElementById('landing'), bp = document.getElementById('badge-page');
+    if(ld && ld.classList.contains('open')){ document.title = 'Home │ UNiTie'; return; }
+    if(bp && bp.classList.contains('open')){ document.title = 'Badges │ UNiTie'; return; }
+    const t = activeTab(), m = t ? marketByKey(t.key) : null;
+    document.title = m ? 'Terminal '+m.name+' │ UNiTie' : 'Terminal │ UNiTie';
+}
 async function bootUnitie(){
     loadSettings();
     loadWorkspace();
@@ -4811,10 +4822,12 @@ function openLanding(){
     renderLandingClock();
     clearInterval(landingClockTimer);
     landingClockTimer = setInterval(renderLandingClock, 500);
+    refreshDocTitle();
 }
 function closeLanding(){
     document.getElementById('landing').classList.remove('open');
     clearInterval(landingClockTimer); landingClockTimer = null;
+    refreshDocTitle();
     onWindowResize();
 }
 /* ════════════════════════════════════════════
@@ -4937,10 +4950,12 @@ function openBadgePage(){
     bpSel=Math.max(0,bpLevel);
     closeMenus(); closeAcctMenu();
     document.getElementById('badge-page').classList.add('open');
+    refreshDocTitle();
     renderBadgeAll();
 }
 function closeBadgePage(){
         const p=document.getElementById('badge-page'); if(p) p.classList.remove('open');
+        refreshDocTitle();
     bpFxSync();
 }
 function applyBadgeIcon(){
