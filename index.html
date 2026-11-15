@@ -231,6 +231,8 @@
         .reset-btn { padding:2px 9px; background:var(--surface2); border:1px solid var(--border2); color:var(--muted);
                      border-radius:5px; cursor:pointer; font-size:9px; font-family:'JetBrains Mono',monospace; }
         .reset-btn:hover { color:var(--red); }
+        .dash-btn { text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
+        .dash-btn:hover { color:var(--accent); border-color:var(--accent); }
         .srv { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color:#aab1c8; font-family:'Inter',sans-serif; }
         .srv .sep { width:5px; height:5px; border-radius:50%; background:#aab1c8; }
         .conn { display:flex; align-items:center; gap:6px; font-size:11px; font-style:italic; }
@@ -725,6 +727,7 @@
         <span>Loss: <b id="st-losses">0</b></span>
         <span>Winrate: <b id="st-wr">0%</b></span>
         <span>P&amp;L: <b id="st-pnl">0</b></span>
+        <a class="reset-btn dash-btn" href="https://demelakoutou-debug.github.io/analytics/" target="_blank" rel="noopener" title="Ouvrir le dashboard">Dashboard</a>
         <button class="reset-btn" onclick="resetStats()">↺ Reset</button>
     </div>
     <div class="foot-right">
