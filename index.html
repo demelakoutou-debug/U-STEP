@@ -727,7 +727,7 @@
         <span>Loss: <b id="st-losses">0</b></span>
         <span>Winrate: <b id="st-wr">0%</b></span>
         <span>P&amp;L: <b id="st-pnl">0</b></span>
-        <a class="reset-btn dash-btn" href="https://demelakoutou-debug.github.io/analytics/" target="_blank" rel="noopener" title="Ouvrir le dashboard">Dashboard</a>
+        <a class="reset-btn dash-btn" href="https://demelakoutou-debug.github.io/analytics/" target="_blank" rel="noopener" onclick="syncDashboardAccount()" title="Ouvrir le dashboard">Dashboard</a>
         <button class="reset-btn" onclick="resetStats()">↺ Reset</button>
     </div>
     <div class="foot-right">
@@ -4727,6 +4727,11 @@ function placeTieReverse(){
     const b = document.getElementById('btn-double');
     if(b){ b.classList.add('flash'); setTimeout(()=>b.classList.remove('flash'),500); }
     placeTrade(dir);
+}
+/* Bouton Dashboard : le dashboard (même domaine) lit 'last_account_id' pour choisir
+   son compte → on lui donne le compte actif d'UNiTie (réel ou démo). */
+function syncDashboardAccount(){
+    try{ if(activeAccountId) localStorage.setItem('last_account_id', activeAccountId); }catch(e){}
 }
 /* ════════════════════════════════════════════
    TITRE DE L'ONGLET DU NAVIGATEUR
