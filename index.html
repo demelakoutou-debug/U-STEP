@@ -4233,7 +4233,7 @@ function onChartZoomDone(ctx){
     const c = (ctx && ctx.chart) ? ctx.chart : chart;
     if(!c || !c.scales.x) return;
     const xs = c.scales.x;
-    viewWin = Math.max(10, Math.round(xs.max - xs.min - RIGHT_PAD + 1));
+    viewWin = winForWidth(xs.max - xs.min);
     if(autoScrollEnabled) scrollToEnd(true);   // reste collé au dernier tick avec la nouvelle largeur
 }
 function applyAutoScrollUI(){
@@ -4271,7 +4271,7 @@ function scrollToEnd(force){
     if(!chart||!V.times.length)return;
     const total=V.times.length;
     const win = viewWin || (chartMode==='candles' ? CANDLE_VIEW : VIEW_WINDOW);
-    const tMin=Math.max(0,total-win), tMax=total+RIGHT_PAD-1;
+    const tMin=Math.max(0,total-win), tMax=total+padForWin(win)-1;
 
     /* glissement : de combien de pixels le contenu recule (repère = ancien dernier tick) */
     let keep=false;
@@ -4776,6 +4776,23 @@ function bootLoaderInit(){
     _bootLive = false;
     setLoading('boot', true);
     setTimeout(()=>{ _bootLive = true; _bootAuthPending = false; checkBootDone(); }, BOOT_LOADER_MAX_MS);
+}
+/* ════════════════════════════════════════════
+   ESPACE VIDE À DROITE PROPORTIONNEL AU ZOOM
+   Au zoom, l'espace vide à droite du dernier tick / de la dernière bougie rétrécit
+   avec la fenêtre au lieu de rester fixe à 30 emplacements (qui écrasait les bougies à gauche).
+   PAD_RATIO = part de la fenêtre laissée vide : 0.28 ≈ 22 % de la largeur.
+════════════════════════════════════════════ */
+const PAD_RATIO = 0.28, PAD_MIN = 3;
+function padForWin(win){
+    return Math.min(RIGHT_PAD, Math.max(PAD_MIN, Math.round(win*PAD_RATIO)));
+}
+/* largeur visible de l'axe X (max − min)  →  nombre de bougies / ticks affichés */
+function winForWidth(W){
+    let win = (W+1)/(1+PAD_RATIO);
+    if(win*PAD_RATIO > RIGHT_PAD) win = W-RIGHT_PAD+1;       // grande fenêtre : espace plafonné à 30
+    else if(win*PAD_RATIO < PAD_MIN) win = W-PAD_MIN+1;      // toute petite fenêtre : espace minimum
+    return Math.max(10, Math.round(win));
 }
 async function bootUnitie(){
     loadSettings();
