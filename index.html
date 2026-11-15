@@ -2073,20 +2073,20 @@ function disconnectTrading(){
 
 /* Les étapes de connexion s'affichent directement sur le bouton tant qu'on n'est pas connecté */
 function setTokStatus(msg,color){
-    console.log('[Deriv auth]', msg);
-    const b=document.getElementById('btn-connect');
-    if(b && b.classList.contains('connecting') && /^⏳/.test(msg)) b.innerText=msg;
+    console.log('[Deriv auth]', msg);   // les étapes de connexion ne s'affichent plus à l'écran
 }
 /* cls === 'connected' : on affiche le solde ; sinon le bouton "Connexion Deriv" prend sa place */
 function setBtnConnect(cls,txt){
     setLoading('auth', cls==='connecting' && !(ticksData && ticksData.prices.length));
     const b=document.getElementById('btn-connect');
-    const connected = cls==='connected';
-    const bgConnect = cls==='connecting' && !!acctCache;   // connexion en arrière-plan : le solde reste affiché
-    const showBox = connected || bgConnect;
-    b.className='acct-connect'+(cls && !connected ? ' '+cls : '');
-    if(txt) b.innerText=txt;
-    b.style.display = showBox ? 'none' : '';
+    const connected  = cls==='connected';
+    const connecting = cls==='connecting';
+    const showBox = connected || (connecting && !!acctCache);   // le solde reste affiché pendant la connexion
+    if(!connecting){                                           // aucun texte « ⏳ … » n'est jamais affiché
+        b.className='acct-connect';
+        if(txt) b.innerText=txt;
+    }
+    b.style.display = (showBox || connecting) ? 'none' : '';
     document.getElementById('acct-box').style.display = showBox ? '' : 'none';
 }
 
