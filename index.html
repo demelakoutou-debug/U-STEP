@@ -24,7 +24,7 @@
         body { display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
 
         /* ── HEADER ── */
-        header { height:52px; flex-shrink:0; background:var(--bg); border-bottom:1px solid var(--border);
+        header { height:52px; flex-shrink:0; background:var(--bg); border-bottom:0;
                  padding:0 14px; display:flex; align-items:center; gap:12px; position:relative; z-index:30; }
         .logo { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; color:var(--accent); white-space:nowrap; }
         .market-wrap { position:relative; flex-shrink:0; }
@@ -150,7 +150,7 @@
         .peak-label.low  { background:rgba(255,77,106,.18); color:var(--red);   border:1px solid rgba(255,77,106,.4); }
 
         /* ── Panneau de trade (droite) ── */
-        #side { width:130px; min-width:130px; max-width:130px; flex-shrink:0; background:#0a0c13; border-left:1px solid var(--border);
+        #side { width:130px; min-width:130px; max-width:130px; flex-shrink:0; background:#0a0c13; border-left:0;
                 padding:0 8px 10px; display:flex; flex-direction:column; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; }
         #side > * { min-width:0; max-width:100%; }
         #side::-webkit-scrollbar { width:0; }
@@ -2396,9 +2396,25 @@ function initChartCtrl(){
 }
 /* Axe de droite : largeur fixe (même colonne que les badges de prix) */
 function fixYAxisWidth(scale){ scale.width = 72; }
-
+/* Retire les graduations d'extrémité (min / max de l'axe) quand elles sont collées à leur voisine :
+   plus d'étiquettes qui se chevauchent ni de prix affiché hors du pas normal au dézoom max. */
+function pruneCloseYTicks(scale){
+    const t = scale.ticks;
+    if(!t || t.length < 4) return;
+    const gaps = [];
+    for(let i=1;i<t.length;i++) gaps.push(t[i].value - t[i-1].value);
+    gaps.sort((a,b)=>a-b);
+    const med = gaps[Math.floor(gaps.length/2)];     // écart « normal » entre deux graduations
+    if(!(med > 0)) return;
+    const minGap = med * 0.75;
+    const out = t.slice();
+    if(out[out.length-1].value - out[out.length-2].value < minGap) out.pop();     // haut
+    if(out.length > 2 && out[1].value - out[0].value < minGap) out.shift();       // bas
+    scale.ticks = out;
+}
 /* Quand un AO est actif, on n'affiche pas les prix qui tombent dans la zone AO */
 function hideOscTicks(scale){
+    pruneCloseYTicks(scale);
     if(!hasInd('ao')) return;
     const o = scale.options;
     if(o.min !== undefined || o.max !== undefined) return;   // étirement manuel : on ne touche pas
