@@ -2082,6 +2082,7 @@ function setBtnConnect(cls,txt){
     const connected  = cls==='connected';
     const connecting = cls==='connecting';
     const showBox = connected || (connecting && !!acctCache);   // le solde reste affiché pendant la connexion
+    if(!connecting) bootAuthSettled();
     if(!connecting){                                           // aucun texte « ⏳ … » n'est jamais affiché
         b.className='acct-connect';
         if(txt) b.innerText=txt;
@@ -3348,6 +3349,7 @@ function connectChartWS(){
             const older=!!histReqOlder[d.req_id]; delete histReqOlder[d.req_id];
             if(older) delete histBusyAt[sym];
             ingestHistory(sym, d.history, older);
+            if(sym===currentSymbol){ _bootLive=true; checkBootDone(); }
             setLoading('data', false);
         } else if(d.msg_type==='proposal' && d.req_id===ROI_REQ_ID){
             handleROIProposal(d);
@@ -3472,6 +3474,7 @@ function ingestTick(sym, tick, src){
     if(!md) return;                                  // aucun onglet sur ce marché
     const active = sym===currentSymbol;
     if(active) _lastLiveTickAt = Date.now();
+    if(active && !_bootLive){ _bootLive=true; checkBootDone(); }
     /* Plusieurs canaux livrent les mêmes ticks (public + compte) : on ignore les doublons
        ET les ticks plus anciens que le dernier, pour que la série reste toujours ordonnée. */
     if(tick.epoch <= md.lastEpoch) return;
@@ -4747,8 +4750,36 @@ function showCachedAccount(){
     }
     return true;
 }
+/* ════════════════════════════════════════════
+   LOADER « U » AU RECHARGEMENT
+   Il reste affiché jusqu'à ce que la connexion soit complète :
+   (1) les données du marché actif sont arrivées (historique ou tick en direct)
+   (2) ET, si tu étais connecté, la connexion du compte est terminée (ou a échoué).
+   Sécurité : il disparaît de toute façon après BOOT_LOADER_MAX_MS.
+════════════════════════════════════════════ */
+const BOOT_LOADER_MAX_MS = 12000;
+let _bootLive = false, _bootAuthPending = false;
+function checkBootDone(){
+    if(_bootLive && !_bootAuthPending) setLoading('boot', false);
+}
+function bootAuthSettled(){
+    if(_bootAuthPending){ _bootAuthPending = false; checkBootDone(); }
+}
+function bootLoaderInit(){
+    let hasSession = false;
+    try{
+        const sp = new URLSearchParams(window.location.search);
+        hasSession = (localStorage.getItem('is_logged')==='true' && !!localStorage.getItem('access_token'))
+                  || (!!sp.get('code') && !!sp.get('state'));
+    }catch(e){}
+    _bootAuthPending = hasSession;
+    _bootLive = false;
+    setLoading('boot', true);
+    setTimeout(()=>{ _bootLive = true; _bootAuthPending = false; checkBootDone(); }, BOOT_LOADER_MAX_MS);
+}
 async function bootUnitie(){
     loadSettings();
+    bootLoaderInit();
     loadWorkspace();
     initChart();
     document.querySelectorAll('[data-logo]').forEach(el=>{ el.src=LOGOS[el.dataset.logo]; });
