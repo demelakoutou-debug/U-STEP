@@ -727,7 +727,7 @@
             <span><span class="hkey">2× Clic</span>Reset</span>
             <span id="trendline-hint" style="display:none;"></span>
         </div>
-        <span class="ver">v3.3 ©2026 voxlux software, Inc.</span>
+        <span class="ver">v3.4.7 ©2026 voxlux software, Inc.</span>
     </div>
     <div class="stats" ondblclick="openDashboard(event)">
         <span>Trades: <b id="st-trades">0</b></span>
@@ -932,8 +932,8 @@ D.series.forEach(function(s){
   s.ref=a[Math.min(a.length-1,Math.floor(a.length*0.99))]||a[a.length-1]||1;
 });
 
-$('sym').textContent=D.name;
-$('meta').textContent=N+' ticks'+(N?(' \u00b7 '+fD(D.epochs[0])+' '+fT(D.epochs[0])+' \u2192 '+fD(D.epochs[N-1])+' '+fT(D.epochs[N-1])):'')+' \u00b7 '+D.paramsText+" \u00b7 heure locale de l'appareil";
+$('sym').textContent=D.name+(D.mode==='candles'?' \u00b7 '+D.tf+'s':'');
+$('meta').textContent=N+(D.mode==='candles'?' bougies '+D.tf+'s':' ticks')+(N?(' \u00b7 '+fD(D.epochs[0])+' '+fT(D.epochs[0])+' \u2192 '+fD(D.epochs[N-1])+' '+fT(D.epochs[N-1])):'')+' \u00b7 '+D.paramsText+" \u00b7 heure locale de l'appareil";
 
 D.series.forEach(function(s){
   var b=document.createElement('button');
@@ -971,7 +971,7 @@ function draw(){
   function X(i){return PADL+(i-view.s)/span*plotW;}
   var i0=Math.max(0,Math.floor(view.s)), i1=Math.min(N-1,Math.ceil(view.e));
   var mn=Infinity,mx=-Infinity,i,p;
-  for(i=i0;i<=i1;i++){p=D.prices[i];if(p<mn)mn=p;if(p>mx)mx=p;}
+  for(i=i0;i<=i1;i++){var ph=D.mode==='candles'?D.highs[i]:D.prices[i],pl=D.mode==='candles'?D.lows[i]:D.prices[i];if(pl<mn)mn=pl;if(ph>mx)mx=ph;}
   if(!isFinite(mn)){mn=0;mx=1;}
   if(mx-mn<1e-9)mx=mn+1;
   var pd=(mx-mn)*0.08;mn-=pd;mx+=pd;
@@ -1029,8 +1029,22 @@ function draw(){
     else if(s.kind==='st'){line(s.a,s.c1,2.4);line(s.b,s.c2,2.4);}
   });
 
+  if(D.mode==='candles'){
+    var cw=Math.max(1,Math.min(40,pxPer*0.72));
+    for(i=a;i<=b;i++){
+      var co=D.opens[i],chh=D.highs[i],cll=D.lows[i],cc=D.prices[i];
+      if(co==null)continue;
+      var cup=cc>co?true:(cc<co?false:(i>0?cc>=D.prices[i-1]:true));
+      var ccol=cup?'#00c896':'#e5174d';
+      var cxw=Math.round(X(i))+.5;
+      ctx.strokeStyle=ccol;ctx.lineWidth=Math.max(1,Math.min(2,cw/8));ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(cxw,Y(chh));ctx.lineTo(cxw,Y(cll));ctx.stroke();
+      var yo=Y(co),yc=Y(cc);
+      ctx.fillStyle=ccol;ctx.fillRect(Math.round(X(i)-cw/2),Math.min(yo,yc),Math.max(1,Math.round(cw)),Math.max(1.5,Math.abs(yo-yc)));
+    }
+  }
   ctx.strokeStyle='#3d7eff';ctx.lineWidth=1.6;ctx.setLineDash([]);ctx.beginPath();
-  if(pxPer>=1){
+  if(D.mode==='candles'){ /* bougies déjà dessinées */ }else if(pxPer>=1){
     for(i=a;i<=b;i++){var px=X(i),py=Y(D.prices[i]);if(i===a)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
   }else{
     /* beaucoup de ticks par pixel : min/max par colonne pour ne perdre aucun pic */
@@ -1114,6 +1128,7 @@ function draw(){
 function updateInfo(i,hx){
   var ep=D.epochs[i],pv=i>0?D.prices[i-1]:null,p=D.prices[i];
   var h='<b>#'+(i+1)+'</b> \u00b7 '+fD(ep)+' '+fT(ep)+'<br>Prix <b>'+fv(p)+'</b>';
+  if(D.mode==='candles')h+='<br>O '+fv(D.opens[i])+' H '+fv(D.highs[i])+' L '+fv(D.lows[i])+' C <b>'+fv(p)+'</b>';
   if(pv!=null){var dl=p-pv;h+=' <span style="color:'+(dl>0?'#00c896':(dl<0?'#ff4d6a':'#5a6480'))+'">'+(dl>0?'\u25b2 +':(dl<0?'\u25bc ':'= '))+(dl===0?'0':fv(dl))+'</span>';}
   function row(lbl,col,v,d){if(v==null)return '';return '<br><span style="color:'+col+'">'+lbl+'</span> '+fv(v,d);}
   D.series.forEach(function(s){
@@ -3760,14 +3775,15 @@ function calculateFractals(prices,period){
    Le code de la visionneuse vient du bloc modèle (id viewer-tpl, type text/template).
 ════════════════════════════════════════════ */
 function exportTicksHTML(){
-    const n = ticksData.prices.length;
+    const V = VD(), candle = chartMode==='candles';
+    const n = V.prices.length;
     if(!n){ showFeedback('⚠ Aucun tick à exporter pour le moment','err'); return; }
     const tplEl = document.getElementById('viewer-tpl');
     if(!tplEl){ showFeedback('❌ Modèle de visionneuse introuvable','err'); return; }
 
     const r = (v,d) => (v==null || isNaN(v)) ? null : +(+v).toFixed(d);
     const map = (arr,d) => { const o = new Array(n); for(let i=0;i<n;i++) o[i] = r(arr[i],d); return o; };
-    const P = ticksData.prices;
+    const P = V.prices;
     const inds = activeInds(), seen = {}, series = [], parts = [];
     inds.forEach(inst=>{
         const p=inst.p, total=inds.filter(x=>x.type===inst.type).length;
@@ -3776,7 +3792,7 @@ function exportTicksHTML(){
         const label=IND_TYPES[inst.type].name+(total>1?' #'+seen[inst.type]:'');
         const base={id:'s'+inst.uid, kind:inst.type, label};
         if(inst.type==='sar'){
-            series.push({...base, c1:col, a:map(calculateSAR(ticksData.highs,ticksData.lows,p.step,p.max),4)});
+            series.push({...base, c1:col, a:map(calculateSAR(V.highs,V.lows,p.step,p.max),4)});
             parts.push('SAR '+p.step+'/'+p.max);
         } else if(inst.type==='fractal'){
             const f=calculateFractals(P,p.period);
@@ -3796,17 +3812,19 @@ function exportTicksHTML(){
             series.push({...base, c1:col[0], c2:col[1], a:map(a,4), b:map(b,4)});
             parts.push('CE '+p.period+'×'+p.mult);
         } else if(inst.type==='ao'){
-            series.push({...base, c1:col[0], c2:col[1], a:map(calculateAO(P,p.fast,p.slow),5), fast:p.fast, slow:p.slow});
+            series.push({...base, c1:col[0], c2:col[1], a:map(calculateAO(candle ? P.map((c,i)=>(V.highs[i]+V.lows[i])/2) : P,p.fast,p.slow),5), fast:p.fast, slow:p.slow});
             parts.push('AO '+p.fast+'/'+p.slow);
         }
     });
 
     const mk = marketBySymbol(currentSymbol) || marketByKey(activeTab().key);
     const epochs = new Array(n);
-    for(let i=0;i<n;i++) epochs[i] = ticksData.epochs[i] != null ? ticksData.epochs[i] : null;
+    for(let i=0;i<n;i++) epochs[i] = V.epochs[i] != null ? V.epochs[i] : null;
     const data = {
         symbol: currentSymbol, name: mk ? mk.name : currentSymbol, exportedAt: Date.now(),
         epochs, prices: map(P,4), series,
+        mode: candle ? 'candles' : 'ticks', tf: candleTF,
+        opens: candle ? map(V.opens,4) : null, highs: candle ? map(V.highs,4) : null, lows: candle ? map(V.lows,4) : null,
         paramsText: parts.length ? parts.join(' · ') : 'aucun indicateur'
     };
 
@@ -3817,12 +3835,12 @@ function exportTicksHTML(){
     const url = URL.createObjectURL(blob);
     const pad = x => String(x).padStart(2,'0');
     const now = new Date();
-    const fname = 'unitie_ticks_'+currentSymbol+'_'+now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds())+'.html';
+    const fname = 'unitie_'+(candle?'candles'+candleTF+'s':'ticks')+'_'+currentSymbol+'_'+now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds())+'.html';
     const a = document.createElement('a');
     a.href = url; a.download = fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 5000);
-    showFeedback('✓ '+n+' ticks exportés ('+Math.round(blob.size/1024)+' Ko) → '+fname,'ok');
+    showFeedback('✓ '+n+(candle?' bougies':' ticks')+' exportés ('+Math.round(blob.size/1024)+' Ko) → '+fname,'ok');
 }
 
 /* ════════════════════════════════════════════
