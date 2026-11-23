@@ -891,6 +891,20 @@ body{font-family:Inter,system-ui,-apple-system,Arial,sans-serif;background:#0d0f
  #exp-pill, #trade-feedback-bar { right:84px; }
 #tl-stats { right:84px; max-width:calc(100% - 110px); }
  @media (max-width: 900px) { #tl-stats { right:80px; } }
+ #rpbar{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);display:flex;align-items:center;gap:22px;z-index:8;user-select:none}
+#rpbar .rb{background:transparent;border:0;cursor:pointer;color:#b9b9b9;padding:2px 4px;display:flex;align-items:center;opacity:.9}
+#rpbar .rb:hover{color:#fff}
+#rpbar .rb svg{display:block;fill:currentColor}
+#rp-speed{font-size:18px;font-weight:600;font-family:Inter,system-ui,sans-serif;min-width:48px}
+#rp-speed i{font-style:normal;font-size:8px;margin-right:3px;vertical-align:-3px}
+#rpmenu{display:none;position:absolute;left:50%;bottom:140px;transform:translateX(-50%);width:200px;height:20px;z-index:9}
+#rpmenu.open{display:block}
+#rpline{position:absolute;left:5px;right:5px;top:9px;height:2px;background:#fff;border-radius:1px}
+#rpfill{position:absolute;top:9px;height:2px;background:#1a73e8}
+.rpdot{position:absolute;top:4px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#fff;cursor:pointer}
+.rpdot.sel{background:#1a73e8;box-shadow:0 0 0 2px #fff}
+#rphint{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:none;padding:6px 14px;border-radius:8px;background:rgba(20,23,32,.94);border:1px solid #ffd166;color:#ffd166;font-size:12px;font-weight:600;z-index:8;pointer-events:none;white-space:nowrap}
+#rphint.show{display:block}
 </style>
 </head>
 <body>
@@ -915,7 +929,8 @@ body{font-family:Inter,system-ui,-apple-system,Arial,sans-serif;background:#0d0f
 <script>
 (function(){
 var D = /*__DATA__*/null;
-var N = D.prices.length;
+var NA = D.prices.length;
+var N = NA;
 function $(id){return document.getElementById(id);}
 var cv=$('cv'), ctx=cv.getContext('2d'), wrap=$('wrap'), info=$('info');
 var W=0,H=0,DPR=Math.min(window.devicePixelRatio||1,3);
@@ -1122,7 +1137,18 @@ function draw(){
       ctx.fillText(s.label+' '+s.fast+'/'+s.slow,PADL+4,pT+3);
     });
   }
-
+  if(RP.pick&&RP.pickIdx!=null){
+    var rx=X(RP.pickIdx);
+    if(rx>=PADL&&rx<=W-PADR){
+      ctx.save();ctx.strokeStyle='#ffd166';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
+      ctx.beginPath();ctx.moveTo(rx,PADT);ctx.lineTo(rx,bottomY);ctx.stroke();ctx.setLineDash([]);
+      var rlt=fT(D.epochs[RP.pickIdx]);ctx.font='bold 10px monospace';
+      var rtw=ctx.measureText(rlt).width+10;
+      ctx.fillStyle='#ffd166';ctx.fillRect(rx-rtw/2,PADT,rtw,16);
+      ctx.fillStyle='#0d0f17';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(rlt,rx,PADT+8);
+      ctx.restore();
+    }
+  }
   /* ---- reticule + valeurs ---- */
   if(hover!=null&&hover>=0&&hover<N){
     var hx=X(hover),hy=Y(D.prices[hover]);
@@ -1192,7 +1218,7 @@ cv.addEventListener('pointermove',function(e){
     view.s=drag.s+di;view.e=drag.e+di;clamp();
     if(moved>4)hover=null;
     render();
-  }else if(e.pointerType==='mouse'){setHover(e.clientX);}
+  }else if(e.pointerType==='mouse'){if(RP.pick){rpHoverPick(e.clientX);}else{setHover(e.clientX);}}
 });
 function endPtr(e){
   var wasTap=(moved<5)&&Object.keys(ptrs).length===1;
@@ -1201,7 +1227,7 @@ function endPtr(e){
   pinch=null;
   if(ids.length===1){var q=ptrs[ids[0]];drag={x:q.x,s:view.s,e:view.e};moved=99;}
   else{drag=null;}
-  if(wasTap)setHover(e.clientX);
+  if(wasTap){if(RP.pick){rpConfirm(e.clientX);}else{setHover(e.clientX);}}
 }
 cv.addEventListener('pointerup',endPtr);
 cv.addEventListener('pointercancel',endPtr);
@@ -1240,6 +1266,110 @@ window.addEventListener('keydown',function(e){
 });
 window.addEventListener('resize',fit);
 window.addEventListener('orientationchange',function(){setTimeout(fit,200);});
+/* ═════ REPLAY (Offline Backtest) ═════ */
+var RP={on:false,pick:false,pickIdx:null,playing:false,speed:1,timer:0};
+var RP_SP=[-4,-3,-2,1,2,3,4];
+function setN(n){N=n;HI=N+10;}
+var IC={
+ b2:'<svg width="38" height="28" viewBox="1 4 22 16"><path d="M12 4v16L1 12zM23 4v16L12 12z"/></svg>',
+ b1:'<svg width="22" height="28" viewBox="5 3 14 18"><path d="M19 3v18L5 12z"/></svg>',
+ f1:'<svg width="22" height="28" viewBox="5 3 14 18"><path d="M5 3v18l14-9z"/></svg>',
+ f2:'<svg width="38" height="28" viewBox="1 4 22 16"><path d="M12 4v16l11-8zM1 4v16l11-8z"/></svg>',
+ play:'<svg width="14" height="18" viewBox="5 3 14 18"><path d="M5 3v18l14-9z"/></svg>',
+ pause:'<svg width="14" height="18" viewBox="6 4 12 16"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>'
+};
+var tb=document.createElement('button');tb.className='btn';tb.id='b-replay';
+$('top').insertBefore(tb,$('tg'));
+var rpbar=document.createElement('div');rpbar.id='rpbar';
+rpbar.innerHTML='<button class="rb" id="rp-speed"></button><button class="rb" id="rp-b2">'+IC.b2+'</button><button class="rb" id="rp-b1">'+IC.b1+'</button><button class="rb" id="rp-play"></button><button class="rb" id="rp-f1">'+IC.f1+'</button><button class="rb" id="rp-f2">'+IC.f2+'</button>';
+$('wrap').appendChild(rpbar);
+var rpmenu=document.createElement('div');rpmenu.id='rpmenu';
+var rph='<div id="rpline"></div><div id="rpfill"></div>';
+RP_SP.forEach(function(v,i){rph+='<div class="rpdot" data-i="'+i+'" style="left:'+(5+i*190/6)+'px"></div>';});
+rpmenu.innerHTML=rph;$('wrap').appendChild(rpmenu);
+var rphint=document.createElement('div');rphint.id='rphint';
+rphint.textContent='Cliquez sur le graphique pour choisir le point de d\u00e9part du replay';
+$('wrap').appendChild(rphint);
+var bSp=$('rp-speed'),bPlay=$('rp-play'),rpfill=$('rpfill');
+
+function rpUi(){
+  bSp.innerHTML='<i>&#9652;</i>'+RP.speed+'x';
+  bPlay.innerHTML=RP.playing?IC.pause:IC.play;
+  var act=RP.pick||RP.on;
+  tb.textContent=act?'\u23f9 Quitter replay':'\u23ea Replay';
+  tb.className='btn'+(act?' on':'');
+  rphint.className=RP.pick?'show':'';
+  var s=RP_SP.indexOf(RP.speed),a=Math.min(3,s),b=Math.max(3,s),st=190/6;
+  rpfill.style.left=(5+a*st)+'px';rpfill.style.width=((b-a)*st)+'px';
+  [].forEach.call(rpmenu.querySelectorAll('.rpdot'),function(d,i){d.className='rpdot'+(i===s?' sel':'');});
+}
+function rpIdxAt(cx){
+  var r=cv.getBoundingClientRect();
+  var i=Math.round(view.s+(cx-r.left-PADL)/plotWidth()*(view.e-view.s));
+  return Math.max(0,Math.min(NA-1,i));
+}
+function rpHoverPick(cx){RP.pickIdx=rpIdxAt(cx);hover=null;render();}
+function rpSetEnd(e){
+  e=Math.max(1,Math.min(NA-1,e));
+  setN(e+1);
+  var sp=view.e-view.s;view.e=N-1+8;view.s=view.e-sp;clamp();
+  hover=null;render();
+}
+function rpEnterPick(){
+  RP.playing=false;clearTimeout(RP.timer);
+  RP.on=false;setN(NA);
+  RP.pick=true;RP.pickIdx=null;hover=null;
+  rpUi();render();
+}
+function rpExit(){
+  RP.playing=false;clearTimeout(RP.timer);
+  RP.pick=false;RP.pickIdx=null;RP.on=false;
+  setN(NA);hover=null;rpUi();render();
+}
+function rpConfirm(cx){
+  var idx=Math.max(1,Math.min(NA-1,rpIdxAt(cx)));
+  RP.pick=false;RP.pickIdx=null;RP.on=true;RP.playing=false;
+  rpSetEnd(idx);rpUi();
+}
+function rpLoop(){
+  clearTimeout(RP.timer);
+  if(!RP.playing)return;
+  RP.timer=setTimeout(function(){
+    var nx=N-1+(RP.speed>0?1:-1);
+    if(nx<1||nx>NA-1){RP.playing=false;rpUi();return;}
+    rpSetEnd(nx);rpLoop();
+  },1000/Math.abs(RP.speed));
+}
+function rpStep(dir,n){
+  if(!RP.on){if(!RP.pick)rpEnterPick();return;}
+  rpSetEnd(N-1+dir*n);
+}
+function rpTogglePlay(){
+  if(!RP.on){if(!RP.pick)rpEnterPick();return;}
+  if(RP.playing){RP.playing=false;}
+  else{
+    if((RP.speed>0&&N-1>=NA-1)||(RP.speed<0&&N-1<=1))return;
+    RP.playing=true;
+  }
+  rpUi();rpLoop();
+}
+function rpSetSpeed(v){RP.speed=v;rpUi();if(RP.playing)rpLoop();}
+
+tb.onclick=function(){if(RP.pick||RP.on)rpExit();else rpEnterPick();};
+$('rp-b2').onclick=function(){rpStep(-1,2);};
+$('rp-b1').onclick=function(){rpStep(-1,1);};
+$('rp-f1').onclick=function(){rpStep(1,1);};
+$('rp-f2').onclick=function(){rpStep(1,2);};
+bPlay.onclick=rpTogglePlay;
+bSp.onclick=function(e){e.stopPropagation();rpmenu.classList.toggle('open');};
+rpmenu.addEventListener('click',function(e){
+  e.stopPropagation();
+  var d=e.target.closest('.rpdot');
+  if(d){rpSetSpeed(RP_SP[+d.dataset.i]);rpmenu.classList.remove('open');}
+});
+document.addEventListener('click',function(){rpmenu.classList.remove('open');});
+window.addEventListener('keydown',function(e){if(e.key==='Escape'&&RP.pick){RP.pick=false;RP.pickIdx=null;rpUi();render();}});
+rpUi();
 
 goEnd(220);
 fit();
