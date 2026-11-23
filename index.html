@@ -1267,7 +1267,9 @@ window.addEventListener('keydown',function(e){
 window.addEventListener('resize',fit);
 window.addEventListener('orientationchange',function(){setTimeout(fit,200);});
 /* ═════ REPLAY (Offline Backtest) ═════ */
-var RP={on:false,pick:false,pickIdx:null,playing:false,speed:1,timer:0};
+var RP={on:false,pick:false,pickIdx:null,playing:false,speed:1,timer:0,part:null,t:0};
+var RAWE=D.rawE||[], RAWP=D.rawP||[], NT=RAWE.length;
+var TICKMODE=(D.mode==='candles' && NA>1 && NT>1 && NT===RAWP.length);
 var RP_SP=[-4,-3,-2,1,2,3,4];
 function setN(n){N=n;HI=N+10;}
 var IC={
@@ -1309,7 +1311,37 @@ function rpIdxAt(cx){
   return Math.max(0,Math.min(NA-1,i));
 }
 function rpHoverPick(cx){RP.pickIdx=rpIdxAt(cx);hover=null;render();}
+function rpFirstTick(c){
+  var t0=D.epochs[c], lo=0, hi=NT;
+  while(lo<hi){var m=(lo+hi)>>1; if(RAWE[m]<t0)lo=m+1; else hi=m;}
+  return lo;
+}
+function rpCandleOfEpoch(ep){
+  var lo=0, hi=NA-1, r=0;
+  while(lo<=hi){var m=(lo+hi)>>1; if(D.epochs[m]<=ep){r=m;lo=m+1;}else hi=m-1;}
+  return r;
+}
+function rpLastTickOfCandle(c){ return c>=NA-1 ? NT-1 : rpFirstTick(c+1)-1; }
+function rpCur(){ return TICKMODE ? RP.t : N-1; }
+function rpMax(){ return TICKMODE ? NT-1 : NA-1; }
+function rpMin(){ return TICKMODE ? rpFirstTick(1) : 1; }
+function rpRestore(){
+  if(RP.part){ var q=RP.part; D.highs[q.k]=q.h; D.lows[q.k]=q.l; D.prices[q.k]=q.c; RP.part=null; }
+}
+function rpSetTick(t){
+  t=Math.max(rpMin(),Math.min(NT-1,t));
+  rpRestore();
+  var k=rpCandleOfEpoch(RAWE[t]), j0=rpFirstTick(k), h=-Infinity, l=Infinity;
+  for(var j=j0;j<=t;j++){ var v=RAWP[j]; if(v>h)h=v; if(v<l)l=v; }
+  RP.part={k:k,h:D.highs[k],l:D.lows[k],c:D.prices[k]};
+  D.highs[k]=h; D.lows[k]=l; D.prices[k]=RAWP[t];
+  RP.t=t;
+  setN(k+1);
+  var sp=view.e-view.s; view.e=N-1+8; view.s=view.e-sp; clamp();
+  hover=null; render();
+}
 function rpSetEnd(e){
+  if(TICKMODE){ rpSetTick(e); return; }
   e=Math.max(1,Math.min(NA-1,e));
   setN(e+1);
   var sp=view.e-view.s;view.e=N-1+8;view.s=view.e-sp;clamp();
@@ -1317,38 +1349,38 @@ function rpSetEnd(e){
 }
 function rpEnterPick(){
   RP.playing=false;clearTimeout(RP.timer);
-  RP.on=false;setN(NA);
+  rpRestore();RP.on=false;setN(NA);
   RP.pick=true;RP.pickIdx=null;hover=null;
   rpUi();render();
 }
 function rpExit(){
   RP.playing=false;clearTimeout(RP.timer);
-  RP.pick=false;RP.pickIdx=null;RP.on=false;
+  rpRestore();RP.pick=false;RP.pickIdx=null;RP.on=false;
   setN(NA);hover=null;rpUi();render();
 }
 function rpConfirm(cx){
   var idx=Math.max(1,Math.min(NA-1,rpIdxAt(cx)));
   RP.pick=false;RP.pickIdx=null;RP.on=true;RP.playing=false;
-  rpSetEnd(idx);rpUi();
+  rpSetEnd(TICKMODE?rpLastTickOfCandle(idx):idx);rpUi();
 }
 function rpLoop(){
   clearTimeout(RP.timer);
   if(!RP.playing)return;
   RP.timer=setTimeout(function(){
-    var nx=N-1+(RP.speed>0?1:-1);
-    if(nx<1||nx>NA-1){RP.playing=false;rpUi();return;}
+    var nx=rpCur()+(RP.speed>0?1:-1);
+    if(nx<rpMin()||nx>rpMax()){RP.playing=false;rpUi();return;}
     rpSetEnd(nx);rpLoop();
   },1000/Math.abs(RP.speed));
 }
 function rpStep(dir,n){
   if(!RP.on){if(!RP.pick)rpEnterPick();return;}
-  rpSetEnd(N-1+dir*n);
+  rpSetEnd(rpCur()+dir*n);
 }
 function rpTogglePlay(){
   if(!RP.on){if(!RP.pick)rpEnterPick();return;}
   if(RP.playing){RP.playing=false;}
   else{
-    if((RP.speed>0&&N-1>=NA-1)||(RP.speed<0&&N-1<=1))return;
+    if((RP.speed>0&&rpCur()>=rpMax())||(RP.speed<0&&rpCur()<=rpMin()))return;
     RP.playing=true;
   }
   rpUi();rpLoop();
@@ -3964,6 +3996,8 @@ function exportTicksHTML(){
         epochs, prices: map(P,4), series,
         mode: candle ? 'candles' : 'ticks', tf: candleTF,
         opens: candle ? map(V.opens,4) : null, highs: candle ? map(V.highs,4) : null, lows: candle ? map(V.lows,4) : null,
+        rawE: candle ? ticksData.epochs.filter(e=>e>=V.epochs[0]) : null,
+        rawP: candle ? ticksData.prices.filter((p,i)=>ticksData.epochs[i]>=V.epochs[0]) : null,
         paramsText: parts.length ? parts.join(' · ') : 'aucun indicateur'
     };
 
