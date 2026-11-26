@@ -967,6 +967,23 @@ D.series.forEach(function(s){
   $('tg').appendChild(b);
 });
 
+function fracAt(s,i){
+  var per=s.per;
+  if(!per) return {u:s.a[i],d:s.b[i],c:false};
+  var P=D.prices, last=N-1, cand=(s.fmode==='cand');
+  if(i<per||i>last||(!cand&&i>last-per)) return {u:null,d:null,c:false};
+  var isU=true,isD=true,j;
+  for(j=1;j<=per;j++){
+    if(P[i]<=P[i-j])isU=false;
+    if(P[i]>=P[i-j])isD=false;
+    if(i+j<=last){
+      if(P[i]<=P[i+j])isU=false;
+      if(P[i]>=P[i+j])isD=false;
+    }
+    if(!isU&&!isD)break;
+  }
+  return {u:isU?P[i]:null,d:isD?P[i]:null,c:(cand&&i>last-per)};
+}
 function clamp(){
   var span=Math.max(10,Math.min(view.e-view.s,HI-LO));
   var s=Math.max(LO,Math.min(view.s,HI-span));
@@ -1094,9 +1111,9 @@ function draw(){
       for(i=a;i<=b;i+=stride){var sv=s.a[i];if(sv==null)continue;ctx.beginPath();ctx.arc(X(i),Y(sv),2,0,6.2832);ctx.fill();}
     } else if(s.kind==='fractal' && pxPer>=0.5){
       for(i=a;i<=b;i++){
-        var fu=s.a[i],fd=s.b[i],fx;
-        if(fu!=null){fx=X(i);var fy=Y(fu)-6;ctx.fillStyle=s.c1;ctx.beginPath();ctx.moveTo(fx,fy-5);ctx.lineTo(fx-5,fy+4);ctx.lineTo(fx+5,fy+4);ctx.closePath();ctx.fill();}
-        if(fd!=null){fx=X(i);var fy2=Y(fd)+6;ctx.fillStyle=s.c2;ctx.beginPath();ctx.moveTo(fx,fy2+5);ctx.lineTo(fx-5,fy2-4);ctx.lineTo(fx+5,fy2-4);ctx.closePath();ctx.fill();}
+        var fr=fracAt(s,i),fu=fr.u,fd=fr.d,fx,hol=fr.c;
+        if(fu!=null){fx=X(i);var fy=Y(fu)-6;ctx.fillStyle=s.c1;ctx.beginPath();ctx.moveTo(fx,fy-5);ctx.lineTo(fx-5,fy+4);ctx.lineTo(fx+5,fy+4);ctx.closePath();if(hol){ctx.strokeStyle=s.c1;ctx.lineWidth=1.6;ctx.stroke();}else ctx.fill();}
+        if(fd!=null){fx=X(i);var fy2=Y(fd)+6;ctx.fillStyle=s.c2;ctx.beginPath();ctx.moveTo(fx,fy2+5);ctx.lineTo(fx-5,fy2-4);ctx.lineTo(fx+5,fy2-4);ctx.closePath();if(hol){ctx.strokeStyle=s.c2;ctx.lineWidth=1.6;ctx.stroke();}else ctx.fill();}
       }
     }
   });
@@ -1169,7 +1186,7 @@ function updateInfo(i,hx){
   D.series.forEach(function(s){
     if(!vis[s.id])return;
     if(s.kind==='sar'||s.kind==='ma') h+=row(s.label,s.c1,s.a[i]);
-    else if(s.kind==='fractal'){h+=row(s.label+' \u25b2',s.c1,s.a[i]);h+=row(s.label+' \u25bc',s.c2,s.b[i]);}
+    else if(s.kind==='fractal'){var fq=fracAt(s,i);h+=row(s.label+' \u25b2'+(fq.c?' (cand.)':''),s.c1,fq.u);h+=row(s.label+' \u25bc'+(fq.c?' (cand.)':''),s.c2,fq.d);}
     else if(s.kind==='st'){h+=row(s.label+' haussier',s.c1,s.a[i]);h+=row(s.label+' baissier',s.c2,s.b[i]);}
     else if(s.kind==='cel'){h+=row(s.label+' long',s.c1,s.a[i]);h+=row(s.label+' short',s.c2,s.b[i]);}
     else if(s.kind==='ao') h+=row(s.label,s.c1,s.a[i],4);
@@ -1502,7 +1519,7 @@ const IND_TYPES = {
     ao:     {name:'Awesome Oscillator', title:'Awesome Oscillator Settings', logo:LOGOS.ao,      defaults:{fast:5,slow:34},         fields:[['fast','Fast',1,1],['slow','Slow',1,2]]},
     cel:    {name:'Chandelier Exit',    title:'Chandelier Exit Settings',    logo:LOGOS.cel,     defaults:{period:22,mult:3},       fields:[['period','Period',1,2],['mult','Mult',0.5,0.5]]},
     ma:     {name:'Moyenne Mobile',     title:'Moyenne Mobile Settings',     logo:LOGOS.ma,      defaults:{period:20,type:'sma'},   fields:[['period','Period',1,2],['type','Type']]},
-    fractal:{name:'Fractal',            title:'Fractal Settings',            logo:LOGOS.fractal, defaults:{period:2},               fields:[['period','Neighbors',1,1]]}
+    fractal:{name:'Fractal',            title:'Fractal Settings',            logo:LOGOS.fractal, defaults:{period:2,mode:'std'},     fields:[['period','Neighbors',1,1],['mode','Mode']]}
 };
 const IND_MENU_ORDER = ['st','sar','ao','cel','ma','fractal'];
 const IND_COLORS = {
@@ -2700,6 +2717,9 @@ function initChart(){
 
 /* Reconstruit les datasets selon les indicateurs de l'onglet actif (un ou deux par exemplaire).
    Chaque Awesome Oscillator a son propre axe pour rester dans sa bande du bas. */
+function holCand(inst,c){
+    return inst.p.mode==='cand' && c.dataIndex > VD().prices.length-1-inst.p.period;
+}
 function buildDatasetsForInstances(){
     if(!chart) return;
     const ds=chart.data.datasets;
@@ -2716,8 +2736,8 @@ function buildDatasetsForInstances(){
         if(inst.type==='sar'){
             push({label:lbl,data:[],borderWidth:0,pointRadius:2.5,pointBackgroundColor:col,showLine:false,order:2});
         } else if(inst.type==='fractal'){
-            push({label:lbl+' ▲',data:[],pointBackgroundColor:col[0],pointBorderColor:col[0],pointStyle:'triangle',rotation:0,pointRadius:c=>c.raw===null?0:7,showLine:false,order:0});
-            push({label:lbl+' ▼',data:[],pointBackgroundColor:col[1],pointBorderColor:col[1],pointStyle:'triangle',rotation:180,pointRadius:c=>c.raw===null?0:7,showLine:false,order:0});
+            push({label:lbl+' ▲',data:[],pointBackgroundColor:c=>holCand(inst,c)?'rgba(0,0,0,0)':col[0],pointBorderColor:col[0],pointBorderWidth:c=>holCand(inst,c)?2:1,pointStyle:'triangle',rotation:0,pointRadius:c=>c.raw===null?0:7,showLine:false,order:0});
+            push({label:lbl+' ▼',data:[],pointBackgroundColor:c=>holCand(inst,c)?'rgba(0,0,0,0)':col[1],pointBorderColor:col[1],pointBorderWidth:c=>holCand(inst,c)?2:1,pointStyle:'triangle',rotation:180,pointRadius:c=>c.raw===null?0:7,showLine:false,order:0});
         } else if(inst.type==='st'){
             push({label:lbl+' ▲',data:[],borderColor:col[0],borderWidth:2.5,pointRadius:0,showLine:true,tension:0,order:3});
             push({label:lbl+' ▼',data:[],borderColor:col[1],borderWidth:2.5,pointRadius:0,showLine:true,tension:0,order:3});
@@ -2785,7 +2805,7 @@ function updateChartData(forceEnd=false){
         if(inst.type==='sar'){
             ds[d[0]].data=padNull(calculateSAR(wHighs,wLows,p.step,p.max));
         } else if(inst.type==='fractal'){
-            const f=calculateFractals(wPrices,p.period), up=padNull(f.up), dn=padNull(f.down);
+            const f=calculateFractals(wPrices,p.period,p.mode), up=padNull(f.up), dn=padNull(f.down);
             ds[d[0]].data=up; ds[d[1]].data=dn;
             if(!firstFractal) firstFractal={up,down:dn,period:p.period};
         } else if(inst.type==='ma'){
@@ -3921,7 +3941,27 @@ function calculateSAR(high,low,step,maxStep){
     }
     return sar;
 }
-function calculateFractals(prices,period){
+function calculateFractals(prices,period,mode){
+    const r=calculateFractalsStd(prices,period);
+    if(mode!=='cand') return r;
+    const n=prices.length, up=r.up, down=r.down;
+    for(let i=Math.max(period,n-period);i<n;i++){
+        let isU=true,isD=true;
+        for(let j=1;j<=period;j++){
+            if(prices[i]<=prices[i-j])isU=false;
+            if(prices[i]>=prices[i-j])isD=false;
+            if(i+j<n){
+                if(prices[i]<=prices[i+j])isU=false;
+                if(prices[i]>=prices[i+j])isD=false;
+            }
+            if(!isU&&!isD)break;
+        }
+        if(isU)up[i]=prices[i];
+        if(isD)down[i]=prices[i];
+    }
+    return r;
+}
+function calculateFractalsStd(prices,period){
     const n=prices.length,up=new Array(n).fill(null),down=new Array(n).fill(null);
     for(let i=period;i<n-period;i++){
         let isU=true,isD=true;
@@ -3966,8 +4006,8 @@ function exportTicksHTML(){
             series.push({...base, c1:col, a:map(calculateSAR(V.highs,V.lows,p.step,p.max),4)});
             parts.push('SAR '+p.step+'/'+p.max);
         } else if(inst.type==='fractal'){
-            const f=calculateFractals(P,p.period);
-            series.push({...base, c1:col[0], c2:col[1], a:map(f.up,4), b:map(f.down,4)});
+            const f=calculateFractals(P,p.period,p.mode);
+           series.push({...base, c1:col[0], c2:col[1], a:map(f.up,4), b:map(f.down,4), per:p.period, fmode:p.mode||'std'});
             parts.push('Fractal '+p.period);
         } else if(inst.type==='ma'){
             series.push({...base, c1:col, a:map(p.type==='ema'?calculateEMA(P,p.period):calculateSMA(P,p.period),4)});
@@ -4349,6 +4389,10 @@ function openIndSettings(uid){
     document.getElementById('ind-modal-title').textContent=cfg.title;
     document.getElementById('ind-modal-body').innerHTML = cfg.fields.map(f=>{
         const key=f[0], cur=inst.p[key];
+        if(key==='mode' && inst.type==='fractal')
+            return '<div class="modal-row"><label>'+f[1]+'</label><select id="m-'+key+'">'
+                 + '<option value="std"'+(cur!=='cand'?' selected':'')+'>Standard</option>'
+                 + '<option value="cand"'+(cur==='cand'?' selected':'')+'>Avec candidat</option></select></div>';
         if(key==='type' && inst.type==='ma')
             return '<div class="modal-row"><label>'+f[1]+'</label><select id="m-'+key+'">'
                  + '<option value="sma"'+(cur==='sma'?' selected':'')+'>SMA</option>'
@@ -4374,6 +4418,7 @@ function confirmIndSettings(){
     cfg.fields.forEach(f=>{
         const key=f[0], m=document.getElementById('m-'+key); if(!m) return;
         if(key==='type'){ inst.p.type=m.value; return; }
+        if(key==='mode'){ inst.p.mode=(m.value==='cand'?'cand':'std'); return; }
         let v=parseFloat(m.value);
         if(isNaN(v) || v<f[3]) v=cfg.defaults[key];
         if(f[2]===1) v=Math.round(v);
